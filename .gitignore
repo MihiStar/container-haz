@@ -1,0 +1,6 @@
+# secrets: never commit or upload
+.env
+.env.*
+.secrets
+*.secret
+*.secrets

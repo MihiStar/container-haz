@@ -10,6 +10,23 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap">
 <style>
+/* ---- password screen (simple access gate for the shared site) */
+#gate { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(1200px 600px at 30% 20%, #23303d, #0d1217 70%); color: #e9eef3; }
+#gate[hidden] { display: none !important; }
+#gate form { width: min(360px, 100%); display: grid; gap: 14px; padding: 26px 24px; border-radius: 14px;
+  background: rgba(20, 28, 36, .82); border: 1px solid rgba(255,255,255,.12); box-shadow: 0 20px 60px rgba(0,0,0,.45); }
+#gate h1 { margin: 0; font: 800 22px/1.1 Archivo, Inter, system-ui, sans-serif; font-stretch: 85%; letter-spacing: .02em; text-transform: uppercase; }
+#gate p { margin: 0; font: 500 13px/1.45 Inter, system-ui, sans-serif; color: #a9b6c3; }
+#gate input { font: 500 15px Inter, system-ui, sans-serif; padding: 11px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.35); color: #fff; outline: none; }
+#gate input:focus { border-color: #5aa7ff; box-shadow: 0 0 0 3px rgba(90,167,255,.25); }
+#gate button { font: 600 14px Inter, system-ui, sans-serif; padding: 11px 12px; border-radius: 9px; border: 0; cursor: pointer; background: #2f86d6; color: #fff; }
+#gate button:hover { background: #3a95e8; }
+#gate .g-err { color: #ff8a80; min-height: 18px; font-size: 12.5px; }
+#gate .g-err:empty { min-height: 0; }
+#gate form.shake { animation: gshake .35s; }
+@keyframes gshake { 25% { transform: translateX(-8px); } 50% { transform: translateX(7px); } 75% { transform: translateX(-4px); } }
 /* Layout: one-screen app. Header strip, 3D stage (dark-glass HUD over the scene) on the left, option rail on the right; stacked on phones.
    Direction: engineering drawing meets instrument HUD - crisp 1px rules, tight radii, stencil-amber for upgrades, gold for unlocked benefits. */
 :root {
@@ -462,6 +479,48 @@ body.present #scenePanel { top: 56px; }
 </style>
 
 <div id="app">
+  <div id="gate" hidden>
+    <form id="gateForm" autocomplete="off">
+      <h1>Container Haz</h1>
+      <p>This configurator is private. Enter the password to continue.</p>
+      <input id="gatePw" type="password" placeholder="Password" aria-label="Password" autocomplete="current-password">
+      <div class="g-err" id="gateErr" role="alert"></div>
+      <button type="submit">Open configurator</button>
+    </form>
+  </div>
+  <script>
+  // Simple access gate. The password lives only in the local .secrets file; tools/make-stable.sh replaces the
+  // placeholder below with its SHA-256 hash when building stable / the public site. Without a hash the gate is off (dev).
+  // Once unlocked, this browser remembers it. Local copies (localhost, 127.0.0.1, opened from disk) skip the gate.
+  (function () {
+    var HASH = '4c25a694b81a579ea1b53a7a2b35c3eb20bd1ed458fdb6d8a7c4e4cd92b3387e', KEY = 'chz.unlock.v1';
+    if (HASH.indexOf('__') === 0) return;
+    var h = location.hostname, local = location.protocol === 'file:' || h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '';
+    var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+    if (local || saved === HASH) return;
+    var gate = document.getElementById('gate'), form = document.getElementById('gateForm'), pw = document.getElementById('gatePw'), err = document.getElementById('gateErr');
+    gate.hidden = false; document.documentElement.style.overflow = 'hidden';
+    setTimeout(function () { pw.focus(); }, 50);
+    function sha(text) {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+        return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      });
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      sha('container-haz|' + pw.value).then(function (x) {
+        if (x === HASH) {
+          try { localStorage.setItem(KEY, HASH); } catch (e2) {}
+          gate.hidden = true; document.documentElement.style.overflow = '';
+          window.dispatchEvent(new Event('resize'));
+        } else {
+          err.textContent = 'Wrong password. Try again.'; pw.select();
+          form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake');
+        }
+      });
+    });
+  })();
+  </script>
   <header id="top">
     <div class="brand">
       <svg width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
