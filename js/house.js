@@ -406,10 +406,11 @@
 
     // floors, ceilings, roof slabs per module
     SEC = 'interior';
-    box(core, L - 0.04, 0.04, 2 * c, floorM, 0, F - 0.02, 0);
-    // wing floor panels: steel underside shows on the outside when folded up
+    // floor slabs: walk surface on top; the edges take the frame colour so the 3 cm above the lowered base beams
+    // reads as part of the beam (no stray floor-texture line under the walls); wing undersides stay ribbed steel
     const underM = texMat({ k: 'rib', c: '#8d9196' });
-    const wingFloorMats = [underM, underM, floorM, underM, underM, underM];
+    box(core, L - 0.04, 0.04, 2 * c, [frameM, frameM, floorM, underM, frameM, frameM], 0, F - 0.02, 0);
+    const wingFloorMats = [frameM, frameM, floorM, underM, frameM, frameM];
     box(WG[-1].floor.c, L - 0.04, 0.04, D, wingFloorMats, 0, F - 0.02, -(c + D / 2));
     box(WG[1].floor.c, L - 0.04, 0.04, D, wingFloorMats, 0, F - 0.02, c + D / 2);
     box(WG[-1].floor.c, L - 0.3, 0.16, D - 0.2, underM, 0, 0.1, -(c + D / 2));
