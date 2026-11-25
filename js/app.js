@@ -1466,7 +1466,8 @@
         E.walls.forEach((q, j) => { // perpendicular walls whose end touches this wall follow it, unless another wall also meets them there
           if (j === wi || q.o === wl0.o || q.at < wl0.a - 0.08 || q.at > wl0.b + 0.08) return;
           for (const end of ['a', 'b']) {
-            if (Math.abs(q[end] - wl0.at) >= 0.08 || sharedJoint(q.at, wl0.at)) continue;
+            if (Math.abs(q[end] - wl0.at) >= 0.08) continue;
+            if (sharedJoint(q.at, wl0.at)) { conn.push({ j, end, growOnly: true, start: q[end] }); break; } // shared corner: may only grow
             // joints further along this wall (other walls meeting or crossing it): it must not shrink past them
             const stops = same.filter((r) => q.at >= r.a - 0.08 && q.at <= r.b + 0.08 && r.at > q.a + 0.05 && r.at < q.b - 0.05).map((r) => r.at);
             conn.push({ j, end, stops }); break;
@@ -1516,10 +1517,14 @@
       if (conn.some(({ j, end }) => { const q = E.walls[j]; const other = end === 'a' ? q.b : q.a; return Math.abs(other - nat) < 0.3; })) return;
       wl.at = nat;
       E.doors.forEach((d) => { if (d.o === wl.o && Math.abs(d.at - old) < 0.01 && d.p >= wl.a && d.p <= wl.b) d.at = nat; });
-      conn.forEach(({ j, end, stops }) => {
+      conn.forEach(({ j, end, stops, growOnly, start }) => {
         const q = E.walls[j];
-        // the end follows the moved wall, but never shrinks past a joint another wall still uses
-        q[end] = r3(end === 'a' ? Math.min(nat, ...(stops || [])) : Math.max(nat, ...(stops || [])));
+        if (growOnly) { // a corner another wall also uses: extend toward the moved wall, never pull back past the old corner
+          q[end] = r3(end === 'a' ? Math.min(start, nat) : Math.max(start, nat));
+        } else {
+          // the end follows the moved wall, but never shrinks past a joint another wall still uses
+          q[end] = r3(end === 'a' ? Math.min(nat, ...(stops || [])) : Math.max(nat, ...(stops || [])));
+        }
         if (q.a > q.b) { const t0 = q.a; q.a = q.b; q.b = t0; editDrag.conn = conn.map((c) => (c.j === j ? Object.assign({}, c, { end: c.end === 'a' ? 'b' : 'a' }) : c)); }
         E.doors.forEach((d) => { // a door on a shortened wall stays on it
           if (d.o !== q.o || Math.abs(d.at - q.at) > 0.01) return;
@@ -1531,34 +1536,59 @@
     const keep = cfg.edit; cfg.edit = E; renderPlan(false); cfg.edit = keep; // live preview, 3D updates on release
   }
   // loose wall ends within 0.3 m of a crossing wall (or the outer wall) snap onto it, so no wall is left hanging
-  // keep every wall connected: an end that no longer meets a wall (or the outer wall) is reconnected —
-  // a partition on that line that stops short is extended back to it, otherwise the end snaps to a wall within 0.3 m
+  // keep every wall connected. A wall end must sit on another wall (or the outer wall). If it doesn't:
+  //  1. it snaps onto the nearest perpendicular wall within 0.3 m (walls off their catalog place are often a few cm out);
+  //  2. if that wall doesn't reach this one, it is stretched (up to 1.5 m) so the two meet in a proper corner / T-joint.
+  // Bathroom walls count as fixed walls to meet.
   function healEnds(E) {
     if (!E || !Array.isArray(E.walls)) return;
-    for (let pass = 0; pass < 2; pass++) {
-      const Y = CHZ.layout(Object.assign({}, cfg, { edit: E }));
-      E.walls.forEach((wl, wi) => {
-        const perp = wl.o === 'h' ? Y.vWalls : Y.hWalls, bounds = wl.o === 'h' ? [Y.x0, Y.x1] : [Y.z0, Y.z1];
+    const Y0 = CHZ.layout(Object.assign({}, cfg, { edit: E }));
+    const fixed = []; // bathroom walls (not editable)
+    Y0.baths.forEach((bt) => { fixed.push({ o: 'h', at: Y0.zB, a: bt.x0, b: bt.x1 }, { o: 'h', at: Y0.zF, a: bt.x0, b: bt.x1 }, { o: 'v', at: bt.inner, a: Y0.zB, b: Y0.zF }); });
+    const covers = (q, x, tol) => x >= q.a - tol && x <= q.b + tol;
+    for (let pass = 0; pass < 3; pass++) {
+      let changed = false;
+      E.walls.forEach((wl) => {
+        const bounds = wl.o === 'h' ? [Y0.x0, Y0.x1] : [Y0.z0, Y0.z1];
+        const perps = E.walls.filter((q) => q !== wl && q.o !== wl.o).concat(fixed.filter((q) => q.o !== wl.o));
+        const paras = E.walls.filter((q) => q !== wl && q.o === wl.o).concat(fixed.filter((q) => q.o === wl.o));
         for (const end of ['a', 'b']) {
           const v = wl[end];
-          if (bounds.some((c) => Math.abs(c - v) < 0.01)) continue;                                                     // outer wall
-          if (perp.some((l) => Math.abs(l.at - v) < 0.01 && l.segs.some(([s0, s1]) => wl.at >= s0 - 0.08 && wl.at <= s1 + 0.08))) continue; // meets a wall
-          if (E.walls.some((q, j) => j !== wi && q.o === wl.o && Math.abs(q.at - wl.at) < 0.01 && v >= q.a - 0.01 && v <= q.b + 0.01)) continue; // continues straight on
-          // a wall on this line that stops short of it: stretch it back (up to 1.5 m) so the two meet again
-          let fix = null, fd = 1.5;
+          const bd = bounds.find((c) => Math.abs(c - v) < 0.3);
+          // already meeting something exactly?
+          if (bounds.some((c) => Math.abs(c - v) < 0.002)) continue;
+          if (perps.some((q) => Math.abs(q.at - v) < 0.002 && covers(q, wl.at, 0.03))) continue;
+          if (paras.some((q) => Math.abs(q.at - wl.at) < 0.03 && covers(q, v, 0.03))) continue;
+          // 1. snap onto a perpendicular wall that runs past this wall (nearest within 0.3 m), or the outer wall
+          let best = null, bdist = 0.3;
+          perps.forEach((q) => { if (!covers(q, wl.at, 0.08)) return; const d = Math.abs(q.at - v); if (d < bdist) { bdist = d; best = q.at; } });
+          if (bd != null && Math.abs(bd - v) < bdist) { bdist = Math.abs(bd - v); best = bd; }
+          if (best != null) { wl[end] = r3(best); changed = true; continue; }
+          // 2. a perpendicular editable wall near this end that stops short: snap onto its line and stretch it to meet
+          let fix = null, fd = Infinity;
           E.walls.forEach((q) => {
-            if (q.o === wl.o || Math.abs(q.at - v) > 0.01) return;
-            for (const qe of ['a', 'b']) { const d = Math.abs(q[qe] - wl.at); if (d < fd && (qe === 'a' ? wl.at < q.a : wl.at > q.b)) { fd = d; fix = { q, qe }; } }
+            if (q === wl || q.o === wl.o || Math.abs(q.at - v) > 0.3) return;
+            const gap = wl.at < q.a ? q.a - wl.at : wl.at > q.b ? wl.at - q.b : 0;
+            if (gap > 1.5) return;
+            const d = Math.abs(q.at - v) * 4 + gap;
+            if (d < fd) { fd = d; fix = q; }
           });
-          if (fix) { fix.q[fix.qe] = r3(wl.at); continue; }
-          // otherwise snap the end onto the nearest wall line within 0.3 m that actually runs past this wall
-          let best = null, bd = 0.3;
-          perp.forEach((l) => { if (!l.segs.some(([s0, s1]) => wl.at >= s0 - 0.08 && wl.at <= s1 + 0.08)) return; const d = Math.abs(l.at - v); if (d < bd) { bd = d; best = l.at; } });
-          bounds.forEach((c) => { const d = Math.abs(c - v); if (d < bd) { bd = d; best = c; } });
-          if (best != null) wl[end] = r3(best);
+          if (fix) {
+            wl[end] = r3(fix.at);
+            if (wl.at < fix.a) fix.a = r3(wl.at); else if (wl.at > fix.b) fix.b = r3(wl.at);
+            changed = true;
+          }
         }
       });
+      if (!changed) break;
     }
+    // doors on stretched / snapped walls stay on their wall
+    E.doors.forEach((d) => {
+      const host = E.walls.find((q) => q.o === d.o && Math.abs(q.at - d.at) < 0.03 && d.p >= q.a - 0.5 && d.p <= q.b + 0.5);
+      if (!host) return;
+      d.at = host.at;
+      d.p = r3(Math.max(host.a + d.w / 2 + 0.1, Math.min(host.b - d.w / 2 - 0.1, d.p)));
+    });
   }
   function editUp(e) {
     if (!editDrag) return;
