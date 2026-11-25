@@ -784,6 +784,7 @@
 
   // ------------------------------------------------------------------ state changes
   function setValue(key, val) {
+    if (key === 'edit' && val) healEnds(val); // walls stay joined after any edit
     cfg[key] = val;
     const msgs = CHZ.applyRules(cfg, key);
     commit();
@@ -1466,7 +1467,9 @@
           if (j === wi || q.o === wl0.o || q.at < wl0.a - 0.08 || q.at > wl0.b + 0.08) return;
           for (const end of ['a', 'b']) {
             if (Math.abs(q[end] - wl0.at) >= 0.08 || sharedJoint(q.at, wl0.at)) continue;
-            conn.push({ j, end }); break;
+            // joints further along this wall (other walls meeting or crossing it): it must not shrink past them
+            const stops = same.filter((r) => q.at >= r.a - 0.08 && q.at <= r.b + 0.08 && r.at > q.a + 0.05 && r.at < q.b - 0.05).map((r) => r.at);
+            conn.push({ j, end, stops }); break;
           }
         });
         editDrag = { t, kind: 'wall', E, i: wi, at0: wl0.at, conn }; planHost.setPointerCapture(e.pointerId); return;
@@ -1513,10 +1516,11 @@
       if (conn.some(({ j, end }) => { const q = E.walls[j]; const other = end === 'a' ? q.b : q.a; return Math.abs(other - nat) < 0.3; })) return;
       wl.at = nat;
       E.doors.forEach((d) => { if (d.o === wl.o && Math.abs(d.at - old) < 0.01 && d.p >= wl.a && d.p <= wl.b) d.at = nat; });
-      conn.forEach(({ j, end }) => {
+      conn.forEach(({ j, end, stops }) => {
         const q = E.walls[j];
-        q[end] = nat;
-        if (q.a > q.b) { const t0 = q.a; q.a = q.b; q.b = t0; editDrag.conn = conn.map((c) => (c.j === j ? { j, end: c.end === 'a' ? 'b' : 'a' } : c)); }
+        // the end follows the moved wall, but never shrinks past a joint another wall still uses
+        q[end] = r3(end === 'a' ? Math.min(nat, ...(stops || [])) : Math.max(nat, ...(stops || [])));
+        if (q.a > q.b) { const t0 = q.a; q.a = q.b; q.b = t0; editDrag.conn = conn.map((c) => (c.j === j ? Object.assign({}, c, { end: c.end === 'a' ? 'b' : 'a' }) : c)); }
         E.doors.forEach((d) => { // a door on a shortened wall stays on it
           if (d.o !== q.o || Math.abs(d.at - q.at) > 0.01) return;
           d.p = r3(Math.max(q.a + d.w / 2 + 0.1, Math.min(q.b - d.w / 2 - 0.1, d.p)));
@@ -1527,17 +1531,34 @@
     const keep = cfg.edit; cfg.edit = E; renderPlan(false); cfg.edit = keep; // live preview, 3D updates on release
   }
   // loose wall ends within 0.3 m of a crossing wall (or the outer wall) snap onto it, so no wall is left hanging
+  // keep every wall connected: an end that no longer meets a wall (or the outer wall) is reconnected —
+  // a partition on that line that stops short is extended back to it, otherwise the end snaps to a wall within 0.3 m
   function healEnds(E) {
-    const Y = CHZ.layout(Object.assign({}, cfg, { edit: E }));
-    E.walls.forEach((wl) => {
-      const lines = wl.o === 'h' ? [Y.x0, Y.x1].concat(Y.vWalls.map((l) => l.at)) : [Y.z0, Y.z1].concat(Y.hWalls.map((l) => l.at));
-      for (const end of ['a', 'b']) {
-        if (lines.some((c) => Math.abs(c - wl[end]) < 0.005)) continue;
-        let best = null, bd = 0.3;
-        lines.forEach((c) => { const d = Math.abs(c - wl[end]); if (d < bd) { bd = d; best = c; } });
-        if (best != null) wl[end] = r3(best);
-      }
-    });
+    if (!E || !Array.isArray(E.walls)) return;
+    for (let pass = 0; pass < 2; pass++) {
+      const Y = CHZ.layout(Object.assign({}, cfg, { edit: E }));
+      E.walls.forEach((wl, wi) => {
+        const perp = wl.o === 'h' ? Y.vWalls : Y.hWalls, bounds = wl.o === 'h' ? [Y.x0, Y.x1] : [Y.z0, Y.z1];
+        for (const end of ['a', 'b']) {
+          const v = wl[end];
+          if (bounds.some((c) => Math.abs(c - v) < 0.01)) continue;                                                     // outer wall
+          if (perp.some((l) => Math.abs(l.at - v) < 0.01 && l.segs.some(([s0, s1]) => wl.at >= s0 - 0.08 && wl.at <= s1 + 0.08))) continue; // meets a wall
+          if (E.walls.some((q, j) => j !== wi && q.o === wl.o && Math.abs(q.at - wl.at) < 0.01 && v >= q.a - 0.01 && v <= q.b + 0.01)) continue; // continues straight on
+          // a wall on this line that stops short of it: stretch it back (up to 1.5 m) so the two meet again
+          let fix = null, fd = 1.5;
+          E.walls.forEach((q) => {
+            if (q.o === wl.o || Math.abs(q.at - v) > 0.01) return;
+            for (const qe of ['a', 'b']) { const d = Math.abs(q[qe] - wl.at); if (d < fd && (qe === 'a' ? wl.at < q.a : wl.at > q.b)) { fd = d; fix = { q, qe }; } }
+          });
+          if (fix) { fix.q[fix.qe] = r3(wl.at); continue; }
+          // otherwise snap the end onto the nearest wall line within 0.3 m that actually runs past this wall
+          let best = null, bd = 0.3;
+          perp.forEach((l) => { if (!l.segs.some(([s0, s1]) => wl.at >= s0 - 0.08 && wl.at <= s1 + 0.08)) return; const d = Math.abs(l.at - v); if (d < bd) { bd = d; best = l.at; } });
+          bounds.forEach((c) => { const d = Math.abs(c - v); if (d < bd) { bd = d; best = c; } });
+          if (best != null) wl[end] = r3(best);
+        }
+      });
+    }
   }
   function editUp(e) {
     if (!editDrag) return;
@@ -1555,7 +1576,6 @@
       setValue('edit', E); toast('Wall added (' + (wl.b - wl.a).toFixed(2) + ' m). Add a door with the Door tool.'); return;
     }
     if (dr.moved) {
-      if (dr.kind === 'wall' || dr.kind === 'bathWall') healEnds(dr.E);
       setValue('edit', dr.E);
       const bt = dr.kind === 'bathWall' && CHZ.layout(cfg).baths.find((q) => q.side === dr.side);
       toast(dr.kind === 'wall' ? 'Wall moved.' : dr.kind === 'door' ? 'Door moved.' : dr.kind === 'bathDoor' ? 'Bathroom door moved.'
