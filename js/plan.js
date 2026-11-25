@@ -228,15 +228,19 @@
       }
     }
 
-    // ---- room labels
-    rooms.forEach((r) => {
+    // ---- room labels (follow edited walls: enclosed rooms are measured from the actual walls)
+    (Y.edited ? CHZ.roomLabels(cfg) : rooms).forEach((r) => {
       const w = r.x1 - r.x0, d = r.z1 - r.z0, small = r.kind === 'bath' || r.kind === 'kitchen';
+      const area = r.area != null ? r.area : w * d;
       let cx = (r.x0 + r.x1) / 2, cz = (r.z0 + r.z1) / 2;
-      if (r.kind === 'bedroom') cz = r.z0 < 0 ? r.z1 - 0.25 : r.z0 + 0.35;
-      if (r.kind === 'bath') { const b = baths.find((bb) => bb.x0 === r.x0); cx = b.side === 'W' ? x0 + 0.82 + (b.len - 0.82) / 2 : x1 - 0.82 - (b.len - 0.82) / 2; }
+      if (r.own) { cx = r.cx; cz = r.cz; }
+      if (r.kind === 'bedroom' && !r.own) cz = r.z0 < 0 ? r.z1 - 0.25 : r.z0 + 0.35;
+      if (r.kind === 'bedroom' && r.own) cz = r.z0 < 0 ? r.z1 - 0.25 : r.z0 + 0.35;
+      if (r.kind === 'bath') { const b = baths.find((bb) => bb.name === r.name) || baths[0]; cx = b.side === 'W' ? x0 + 0.82 + (b.len - 0.82) / 2 : x1 - 0.82 - (b.len - 0.82) / 2; cz = (zB + zF) / 2; }
       if (r.kind === 'kitchen') { cx = r.x0 + Math.min(1.0, w / 2) + 0.4; cz = r.z0 < 0 ? r.z1 - 1.15 : r.z0 + 1.15; }
       text(cx, cz - (small ? 0.06 : 0.1), r.name.toUpperCase(), small ? 'pl-room pl-room-s' : 'pl-room');
-      text(cx, cz + (small ? 0.12 : 0.16), (w * d).toFixed(1) + ' m²' + (small ? '' : '  ·  ' + w.toFixed(2) + ' × ' + d.toFixed(2)), 'pl-sub');
+      const dimsTxt = r.kind === 'bath' ? '  ·  ' + w.toFixed(2) + ' × ' + d.toFixed(2) : small ? '' : '  ·  ' + w.toFixed(2) + ' × ' + d.toFixed(2);
+      text(cx, cz + (small ? 0.12 : 0.16), area.toFixed(1) + ' m²' + dimsTxt, 'pl-sub');
     });
     if (hall.x1 - hall.x0 > 1) text((hall.x0 + hall.x1) / 2, (zB + zF) / 2 + 0.05, 'HALL', 'pl-tag');
 
@@ -253,9 +257,11 @@
         text(x + 0.08, (za + zb) / 2, label, 'pl-dimtext', 'middle', 90);
       };
       dimH(-L / 2, L / 2, -W / 2 - 0.95, mm(L));
-      const edges = (cells) => cells.map((cl, i) => [i === 0 ? -L / 2 : cl.x0, i === cells.length - 1 ? L / 2 : cl.x1]);
-      if (back.length > 1) edges(back).forEach(([a, b]) => dimH(a, b, -W / 2 - 0.5, mm(b - a)));
-      if (front.length > 1) edges(front).forEach(([a, b]) => dimH(a, b, W / 2 + 0.55, mm(b - a)));
+      // chains split at the real partitions of each band (follow wall edits and the bathroom length)
+      const SP = CHZ.bandSplits(Y);
+      const chain = (xs, y) => { const pts = [-L / 2].concat(xs, [L / 2]); for (let i = 0; i < pts.length - 1; i++) dimH(pts[i], pts[i + 1], y, mm(pts[i + 1] - pts[i])); };
+      if (SP.back.length) chain(SP.back, -W / 2 - 0.5);
+      if (SP.front.length) chain(SP.front, W / 2 + 0.55);
       dimV(-W / 2, W / 2, L / 2 + 1.55, mm(W));
       dimV(-W / 2, -c, L / 2 + 1.2, mm(D)); dimV(-c, c, L / 2 + 1.2, mm(2 * c)); dimV(c, W / 2, L / 2 + 1.2, mm(D));
     }
@@ -264,6 +270,7 @@
     if (opts.editWalls && cfg.edit) cfg.edit.walls.forEach((wl) => {
       if (wl.o === 'h') line(wl.a, wl.at, wl.b, wl.at, 'pl-edit-wall'); else line(wl.at, wl.a, wl.at, wl.b, 'pl-edit-wall');
     });
+    if (opts.editWalls) baths.forEach((b) => line(b.inner, zB, b.inner, zF, 'pl-edit-wall')); // bathroom: inner wall resizes, door slides
     (opts.issues || []).forEach((is, i) => {
       is.rects.forEach(([x, z, w, h]) => s.push(`<rect x="${n(x)}" y="${n(z)}" width="${n(w + 0.002)}" height="${n(h + 0.002)}" class="pl-iss-${is.sev}"/>`));
     });

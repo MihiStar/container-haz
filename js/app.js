@@ -916,11 +916,60 @@
   });
 
   function copyText(text, fallbackEl, msg) {
+    if (CHZ.i18n) text = CHZ.i18n.block(text); // copy in the language on screen
     const done = () => toast(msg);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done, () => { if (fallbackEl) { fallbackEl.focus(); fallbackEl.select(); } toast('Copy is blocked here. The text is selected, press Ctrl+C.'); });
     } else if (fallbackEl) { fallbackEl.focus(); fallbackEl.select(); toast('The text is selected, press Ctrl+C.'); }
   }
+
+  // ------------------------------------------------------------------ presets gallery (ready-made designs per container size)
+  let presetSize = null;
+  const optOf = (key, id, c) => {
+    for (const sec of CHZ.SECTIONS) for (const it of sec.items) {
+      if (it.key !== key) continue;
+      const list = typeof it.options === 'function' ? it.options(c) : it.options;
+      return (list || []).find((o) => String(o.id) === String(id)) || null;
+    }
+    return null;
+  };
+  function renderPresets() {
+    const sizes = ['10ft', '15ft', '20ft', '30ft', '40ft'];
+    if (!presetSize) presetSize = sizes.includes(cfg.size) ? cfg.size : '20ft';
+    $('#psTabs').innerHTML = sizes.map((s) => {
+      const n = CHZ.PRESETS.filter((p) => p.size === s).length;
+      return `<button type="button" role="tab" data-ps-size="${s}" aria-selected="${s === presetSize}">${CHZ.sizeOf({ size: s }).name}<small>${n}</small></button>`;
+    }).join('');
+    $('#psGrid').innerHTML = CHZ.PRESETS.filter((p) => p.size === presetSize).map((p) => {
+      const c = Object.assign({}, CHZ.DEFAULTS, p.cfg);
+      CHZ.applyRules(c, null);
+      const Y = CHZ.layout(c), sz = CHZ.sizeOf(c);
+      const clad = optOf('clad', c.clad, c), frame = optOf('frame', c.frame, c), floor = optOf('floor', c.floor, c);
+      const hero = clad ? swatchStyle(clad) : '';
+      const sw = [clad, frame, floor].filter(Boolean).map((o) => `<span style="${swatchStyle(o)}" title="${esc(o.name)}"></span>`).join('');
+      const beds = Y.bedrooms.length, baths = Y.baths.length;
+      const meta = `${sz.name} · ${(sz.L * sz.W).toFixed(1)} m² · ${beds ? beds + (beds > 1 ? ' bedrooms' : ' bedroom') : 'Open shell'} · ${baths} ${baths === 1 ? 'bathroom' : 'bathrooms'}`;
+      return `<article class="ps-card">
+        <div class="ps-hero" style="${hero}"><span class="ps-tag">${esc(p.tag)}</span><div class="ps-plan">${CHZ.plan.thumb(c.size, c.layout, c.mirror)}</div><div class="ps-sw">${sw}</div></div>
+        <div class="ps-body"><h4>${esc(p.name)}</h4><div class="ps-meta">${esc(meta)}</div><p>${esc(p.blurb)}</p>
+          <div class="ps-chips">${p.chips.map((x) => `<span>${esc(x)}</span>`).join('')}</div>
+          <details class="ps-why"><summary>Why it works</summary><ul>${p.why.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></details></div>
+        <div class="ps-foot"><button type="button" class="btn primary" data-ps-load="${p.id}">Load this design</button></div>
+      </article>`;
+    }).join('');
+  }
+  $('#btnPresets').addEventListener('click', () => { presetSize = null; renderPresets(); $('#dlgPresets').showModal(); });
+  $('#psTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-ps-size]'); if (b) { presetSize = b.dataset.psSize; renderPresets(); } });
+  $('#psGrid').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ps-load]'); if (!b) return;
+    const p = CHZ.PRESETS.find((q) => q.id === b.dataset.psLoad); if (!p) return;
+    loadCfg(JSON.parse(JSON.stringify(p.cfg)));
+    $('#dlgPresets').close();
+    toast('Loaded the "' + p.name + '" preset. Change anything you like.');
+  });
+
+  // ------------------------------------------------------------------ language switch (EN / HU)
+  document.querySelectorAll('[data-lang]').forEach((b) => b.addEventListener('click', () => CHZ.i18n && CHZ.i18n.setLang(b.dataset.lang)));
 
   // ------------------------------------------------------------------ toast
   let toastT = null;
@@ -1217,7 +1266,7 @@
     wall: 'Drag inside the house to draw an interior wall (it snaps to other walls).',
     door: 'Click an interior wall to add a door. Click a door to flip its swing.',
     win: 'Click the front or back wall to add a window.',
-    move: 'Drag an interior wall, room door or window to move it.',
+    move: 'Drag an interior wall, room door or window. Bathroom: drag its inner wall to resize, or its door to slide it.',
   };
   // ---- advanced editing: interior walls, room doors, long-wall windows
   view.planAdv = false;
@@ -1226,14 +1275,27 @@
     $('#btnAdv').setAttribute('aria-pressed', String(view.planAdv));
     $('#advTools').hidden = !view.planAdv;
     if (!view.planAdv && ['wall', 'door', 'win', 'move'].includes(view.planTool)) setPlanTool(view.planTool);
-    if (view.planAdv) toast('Advanced editing: draw, move or remove interior walls, room doors and windows. Bathroom walls stay fixed in the core module.');
+    if (view.planAdv) toast('Advanced editing: draw, move or remove interior walls, room doors and windows. The bathroom can be resized and its door moved; it stays in the core module.');
     renderPlan(false);
   });
   $('#btnResetEdit').addEventListener('click', () => {
     if (!cfg.edit) { toast('Nothing to reset: the walls, doors and windows are the catalog ones.'); return; }
     setValue('edit', null); toast('Walls, doors and windows are back to the catalog plan.');
   });
-  const cloneEdit = () => JSON.parse(JSON.stringify(cfg.edit || CHZ.editSnapshot(cfg)));
+  const cloneEdit = () => {
+    const E = JSON.parse(JSON.stringify(cfg.edit || CHZ.editSnapshot(cfg)));
+    if (!Array.isArray(E.baths)) E.baths = CHZ.editSnapshot(Object.assign({}, cfg, { edit: null })).baths; // older edits
+    return E;
+  };
+  // bathroom: its inner wall (resize) and its door (slide) can be moved; the bathroom itself stays in the core strip
+  function hitBath(p) {
+    const Y = CHZ.layout(cfg);
+    for (const b of Y.baths) {
+      if (p.y < Y.zB - 0.1 || p.y > Y.zF + 0.1 || Math.abs(p.x - b.inner) > 0.3) continue;
+      return { b, door: Math.abs(p.y - b.door.z) < 0.45 };
+    }
+    return null;
+  }
   const r3 = (v) => Math.round(v * 1000) / 1000;
   function bathBlocks(o, at, a, b) { // does a wall cut through a bathroom?
     const Y = CHZ.layout(cfg);
@@ -1306,6 +1368,7 @@
     }
     const E = cloneEdit();
     if (t === 'door') {
+      if (hitBath(p)) { toast('The bathroom has one door. Use Move to slide it along the wall.'); return; }
       const di = hitEditDoor(p, E);
       if (di >= 0) { E.doors[di].into = -E.doors[di].into; setValue('edit', E); toast('Door swing flipped.'); return; }
       const wi = hitEditWall(p, E);
@@ -1327,13 +1390,18 @@
       setValue('edit', E); toast('Window added to the ' + hit.w + ' wall.'); return;
     }
     if (t === 'move') {
+      // inside the bathroom strip, the bathroom wall / door wins over a bedroom door at the corner
+      const hb0 = p.y > Y.zB + 0.08 && p.y < Y.zF - 0.08 ? hitBath(p) : null;
+      if (hb0) { editDrag = { t, kind: hb0.door ? 'bathDoor' : 'bathWall', E, side: hb0.b.side }; planHost.setPointerCapture(e.pointerId); return; }
       const di = hitEditDoor(p, E);
       if (di >= 0) { editDrag = { t, kind: 'door', E, i: di }; planHost.setPointerCapture(e.pointerId); return; }
+      const hb = hitBath(p);
+      if (hb) { editDrag = { t, kind: hb.door ? 'bathDoor' : 'bathWall', E, side: hb.b.side }; planHost.setPointerCapture(e.pointerId); return; }
       const wn = hitWindow(p, E);
       if (wn) { editDrag = { t, kind: 'win', E, w: wn.w, i: wn.i }; planHost.setPointerCapture(e.pointerId); return; }
       const wi = hitEditWall(p, E);
       if (wi != null) { editDrag = { t, kind: 'wall', E, i: wi, at0: E.walls[wi].at }; planHost.setPointerCapture(e.pointerId); return; }
-      toast('Grab an interior wall, a room door or a window (bathroom walls are fixed).'); return;
+      toast('Grab an interior wall, a room door, a window, or the bathroom wall / door.'); return;
     }
   }
   function editMove(e) {
@@ -1345,7 +1413,17 @@
       return;
     }
     const E = editDrag.E;
-    if (editDrag.kind === 'door') {
+    if (editDrag.kind === 'bathWall' || editDrag.kind === 'bathDoor') {
+      const Y = CHZ.layout(cfg), eb = E.baths.find((q) => q.side === editDrag.side), bt = Y.baths.find((q) => q.side === editDrag.side);
+      if (!eb || !bt) return;
+      if (editDrag.kind === 'bathDoor') eb.doorZ = r3(Math.max(Y.zB + 0.45, Math.min(Y.zF - 0.45, snap(p.y))));
+      else {
+        const len = r3(Math.max(1.6, Math.min(bt.maxLen, editDrag.side === 'W' ? snap(p.x) - Y.x0 : Y.x1 - snap(p.x))));
+        const inner = editDrag.side === 'W' ? Y.x0 + len : Y.x1 - len;
+        if (E.walls.some((q) => q.o === 'v' && Math.abs(q.at - inner) < 0.3 && q.a < Y.zF && q.b > Y.zB)) return; // would hit another wall
+        eb.len = len;
+      }
+    } else if (editDrag.kind === 'door') {
       const d = E.doors[editDrag.i];
       const wl = E.walls.find((q) => q.o === d.o && Math.abs(q.at - d.at) < 0.01 && d.p >= q.a - 0.01 && d.p <= q.b + 0.01);
       if (!wl) return;
@@ -1381,7 +1459,12 @@
       E.walls.push(wl);
       setValue('edit', E); toast('Wall added (' + (wl.b - wl.a).toFixed(2) + ' m). Add a door with the Door tool.'); return;
     }
-    if (dr.moved) { setValue('edit', dr.E); toast(dr.kind === 'wall' ? 'Wall moved.' : dr.kind === 'door' ? 'Door moved.' : 'Window moved.'); }
+    if (dr.moved) {
+      setValue('edit', dr.E);
+      const bt = dr.kind === 'bathWall' && CHZ.layout(cfg).baths.find((q) => q.side === dr.side);
+      toast(dr.kind === 'wall' ? 'Wall moved.' : dr.kind === 'door' ? 'Door moved.' : dr.kind === 'bathDoor' ? 'Bathroom door moved.'
+        : dr.kind === 'bathWall' ? 'Bathroom resized to ' + bt.len.toFixed(2) + ' m (1.60 m minimum, stays in the core module).' : 'Window moved.');
+    }
   }
   const isEnd = (w) => w === 'east' || w === 'west';
   $('#drawTools').addEventListener('click', (e) => { const b = e.target.closest('button[data-tool]'); if (b) setPlanTool(b.dataset.tool); });
@@ -1442,6 +1525,7 @@
     if (['wall', 'door', 'win', 'move'].includes(view.planTool)) { editDown(e); return; }
     if (view.planTool === 'erase') { // interior walls and room doors (Advanced)
       const p = svgPoint(e), E = cloneEdit();
+      if (hitBath(p)) { toast('Bathroom walls stay (plumbing in the core module). Use Move to resize the bathroom or slide its door.'); return; }
       const di = hitEditDoor(p, E);
       if (di >= 0) { E.doors.splice(di, 1); setValue('edit', E); toast('Door removed.'); return; }
       const wi = hitEditWall(p, E);

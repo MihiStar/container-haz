@@ -96,11 +96,16 @@
     const mirror = !!cfg.mirror;
     const back = split(mirror ? plan.front : plan.back).map((cl) => Object.assign(cl, { band: 'back', z0, z1: zB }));
     const front = split(mirror ? plan.back : plan.front).map((cl) => Object.assign(cl, { band: 'front', z0: zF, z1 }));
+    // bathrooms stay in the core strip (shipping); Advanced edits may change their length and slide the door
+    const E0 = editOf(cfg);
     const baths = plan.baths.map(([side, len], i) => {
-      const bl = Math.min(len, (x1 - x0) / (plan.baths.length + 0.4));
+      const maxL = bathMaxLen(x1 - x0, plan.baths.length);
+      const eb = E0 && Array.isArray(E0.baths) ? E0.baths.find((q) => q.side === side) : null;
+      const bl = eb ? Math.max(BATH_MIN, Math.min(maxL, +eb.len || len)) : Math.min(len, maxL);
       const bx0 = side === 'W' ? x0 : x1 - bl, bx1 = side === 'W' ? x0 + bl : x1;
       const inner = side === 'W' ? bx1 : bx0;
-      return { side, x0: bx0, x1: bx1, z0: zB, z1: zF, len: bl, inner, door: { x: inner, z: (zB + zF) / 2, w: 0.72 }, name: plan.baths.length > 1 ? 'Bathroom ' + (i + 1) : 'Bathroom' };
+      const dz = eb && eb.doorZ != null ? Math.max(zB + 0.45, Math.min(zF - 0.45, +eb.doorZ)) : (zB + zF) / 2;
+      return { side, x0: bx0, x1: bx1, z0: zB, z1: zF, len: bl, maxLen: maxL, inner, door: { x: inner, z: dz, w: 0.72 }, name: plan.baths.length > 1 ? 'Bathroom ' + (i + 1) : 'Bathroom' };
     });
     const inBath = (x) => baths.some((b) => x > b.x0 - 0.45 && x < b.x1 + 0.45);
 
@@ -255,6 +260,8 @@
     };
   }
 
+  const BATH_MIN = 1.6; // shower + toilet + a small vanity
+  const bathMaxLen = (innerL, n) => (innerL / (n + 0.4));
   // ---- advanced edit model: { v: 1, walls: [{o:'h'|'v', at, a, b}], doors: [{o, at, p, w, into}], wins: {front: [x], back: [x]} }
   function editOf(cfg) {
     const E = cfg.edit;
@@ -274,6 +281,7 @@
     });
     return {
       v: 1, walls,
+      baths: Y.baths.map((b) => ({ side: b.side, len: +b.len.toFixed(3), doorZ: +b.door.z.toFixed(3) })),
       doors: Y.doors.map((d) => ({ o: d.o, at: +(+d.at).toFixed(3), p: +(+d.p).toFixed(3), w: d.w, into: d.into })),
       wins: { front: Y.frontXs.map((x) => +x.toFixed(3)), back: Y.backXs.map((x) => +x.toFixed(3)) },
     };
@@ -323,7 +331,7 @@
 
   // ---- room check for the 2D plan: every enclosed space needs a door (and must connect to the entrance), living spaces need a window.
   // Rooms are found by flood-filling a 10 cm grid between the walls, so it also works for edited plans.
-  function roomIssues(cfg) {
+  function analyseRooms(cfg) {
     const Y = layout(cfg), G = 0.1, PT = Y.PT;
     const nx = Math.max(1, Math.round((Y.x1 - Y.x0) / G)), nz = Math.max(1, Math.round((Y.z1 - Y.z0) / G));
     const gx = (Y.x1 - Y.x0) / nx, gz = (Y.z1 - Y.z0) / nz;
@@ -380,6 +388,8 @@
     const hitOp = (wall, v, kind) => ops.some((o) => o.wall === wall && o.kind === kind && v >= o.a - 0.02 && v <= o.b + 0.02);
     regions.forEach((R) => {
       R.area = R.cells.length * gx * gz; R.x = R.sx / R.cells.length; R.z = R.sz / R.cells.length;
+      R.bx0 = Infinity; R.bx1 = -Infinity; R.bz0 = Infinity; R.bz1 = -Infinity;
+      R.cells.forEach((k) => { const i = k % nx, j = (k - i) / nx; R.bx0 = Math.min(R.bx0, Y.x0 + i * gx); R.bx1 = Math.max(R.bx1, Y.x0 + (i + 1) * gx); R.bz0 = Math.min(R.bz0, Y.z0 + j * gz); R.bz1 = Math.max(R.bz1, Y.z0 + (j + 1) * gz); });
       R.win = false; R.outDoor = false;
       R.cells.forEach((k) => {
         const i = k % nx, j = (k - i) / nx, x = cx(i), z = cz(j);
@@ -395,6 +405,17 @@
     const reach = new Set(regions.filter((R) => R.outDoor).map((R) => R.id));
     let grew = true;
     while (grew) { grew = false; links.forEach((ids) => { if (ids.some((r) => reach.has(r))) ids.forEach((r) => { if (!reach.has(r)) { reach.add(r); grew = true; } }); }); }
+    const regAt = (x, z) => {
+      const i = Math.floor((x - Y.x0) / gx), j = Math.floor((z - Y.z0) / gz);
+      if (i < 0 || j < 0 || i >= nx || j >= nz) return null;
+      const r = reg[j * nx + i]; return r >= 0 ? regions[r] : null;
+    };
+    return { Y, regions, reach, nx, nz, gx, gz, regAt };
+  }
+
+  // room check for the 2D plan: every enclosed space needs a door (and must connect to the entrance), living spaces need a window
+  function roomIssues(cfg) {
+    const { Y, regions, reach, nx, gx, gz } = analyseRooms(cfg);
     const issues = [];
     const names = {};
     regions.filter((R) => R.area >= 0.6).forEach((R) => {
@@ -409,6 +430,42 @@
     });
     return issues;
   }
+  // room labels that follow the real walls: a room that is its own enclosed space gets that space's area and size;
+  // rooms sharing one open space (living / kitchen / hall) keep their catalog cell. New enclosed spaces get "Room".
+  function roomLabels(cfg) {
+    const { Y, regions, regAt } = analyseRooms(cfg);
+    const byReg = new Map();
+    Y.rooms.forEach((r) => {
+      const R = regAt((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+      const key = R ? R.id : 'none-' + r.name;
+      if (!byReg.has(key)) byReg.set(key, { R, rooms: [] });
+      byReg.get(key).rooms.push(r);
+    });
+    const out = [];
+    byReg.forEach(({ R, rooms }) => {
+      if (R && rooms.length === 1) {
+        const r = rooms[0];
+        out.push(Object.assign({}, r, { x0: R.bx0, x1: R.bx1, z0: R.bz0, z1: R.bz1, area: R.area, cx: R.x, cz: R.z, own: true }));
+      } else rooms.forEach((r) => out.push(Object.assign({}, r, { area: (r.x1 - r.x0) * (r.z1 - r.z0) })));
+    });
+    const used = new Set([...byReg.values()].map((v) => v.R && v.R.id));
+    let n = 0;
+    regions.filter((R) => !used.has(R.id) && R.area >= 1.0).forEach((R) => {
+      const inCore = R.z > Y.zB && R.z < Y.zF;
+      if (inCore && R.area > 3 && !R.doorNb.size) return; // the hall strip (open to the rooms around it)
+      out.push({ kind: 'room', name: 'Room ' + (++n), x0: R.bx0, x1: R.bx1, z0: R.bz0, z1: R.bz1, area: R.area, cx: R.x, cz: R.z, own: true });
+    });
+    return out;
+  }
+  // partition positions along each band, for the plan's dimension chains
+  function bandSplits(Y) {
+    const along = (za, zb) => [...new Set(Y.vWalls.filter((v) => v.segs.some(([a, b]) => a < zb - 0.15 && b > za + 0.15)).map((v) => +v.at.toFixed(3)))]
+      .filter((x) => x > -Y.L / 2 + 0.3 && x < Y.L / 2 - 0.3).sort((a, b) => a - b);
+    return { back: along(Y.z0, Y.zB), core: along(Y.zB, Y.zF), front: along(Y.zF, Y.z1) };
+  }
+  CHZ.roomLabels = roomLabels;
+  CHZ.bandSplits = bandSplits;
+
   function rowRuns(R, nx, gx, gz, X0, Z0) {
     const rows = new Map();
     R.cells.forEach((k) => { const i = k % nx, j = (k - i) / nx; if (!rows.has(j)) rows.set(j, []); rows.get(j).push(i); });

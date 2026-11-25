@@ -533,6 +533,7 @@ window.CHZ = window.CHZ || {};
           walls: E.walls.map((wl) => (wl.o === 'h' ? { o: 'h', at: zm(wl.at), a: wl.a, b: wl.b } : (() => { const a = zm(wl.a), b = zm(wl.b); return { o: 'v', at: wl.at, a: Math.min(a, b), b: Math.max(a, b) }; })())),
           doors: E.doors.map((d) => (d.o === 'h' ? Object.assign({}, d, { at: zm(d.at), into: -d.into }) : Object.assign({}, d, { p: -d.p }))),
           wins: { front: E.wins.back.slice(), back: E.wins.front.slice() },
+          baths: (E.baths || []).map((b) => Object.assign({}, b, { doorZ: +(Y.zB + Y.zF - b.doorZ).toFixed(3) })),
         };
       }
     }

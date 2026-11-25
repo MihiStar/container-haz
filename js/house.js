@@ -611,13 +611,50 @@
     const entW = cfg.entrance === 'steel' ? 1.0 : 1.7, entH = cfg.entrance === 'steel' ? 2.1 : 2.2;
     // long walls: windows, main entrance, drawn panorama glass spans and glass doors (drawn on the 2D plan)
     const GATE_W = 1.7, GATE_H = 2.2;
+    // cutaway: a camera-facing wall cut down to 0.9 m keeps its panorama glass, glass doors and entrance (cut too)
+    // ops: [{ u, w, kind: 'glass' | 'door', glassDoor, gaps: [{ u, w }] (doors inside a glass section) }]
+    const CUT_H = 0.9;
+    const cutWall = (g, len, ops) => {
+      wallMesh(g, len, CUT_H, T, ops.map((o) => ({ u: o.u, w: o.w, y0: 0, h: CUT_H + 0.1 })), wallMats);
+      SEC = 'openings';
+      ops.forEach((o) => {
+        const sub = grp(g, o.u, 0, 0);
+        if (o.kind === 'glass') { makeCurtain(sub, o.w, CUT_H, (o.gaps || []).map((q) => ({ u: q.u, w: q.w, h: CUT_H }))); (o.gaps || []).forEach((q) => cutDoor(sub, q.u, q.w, q.glass)); }
+        else cutDoor(sub, 0, o.w, o.glassDoor);
+      });
+      SEC = 'exterior';
+    };
+    function cutDoor(g, u, w, glass) { // a door seen in the cut: frame posts, threshold and the lower part of the leaves
+      const f = 0.06, d = Math.max(0.08, T + 0.015), fm = glass ? winM : frameM;
+      for (const sx of [-1, 1]) box(g, f, CUT_H, d, fm, u + sx * (w / 2 - f / 2), CUT_H / 2, 0);
+      box(g, w, 0.03, d, fm, u, 0.015, 0);
+      if (glass) {
+        box(g, 0.05, CUT_H, 0.05, winM, u, CUT_H / 2, 0);
+        for (const sx of [-1, 1]) box(g, w / 2 - f - 0.03, CUT_H - 0.08, 0.01, glassM, u + sx * (w / 4), CUT_H / 2, 0, { noShadow: true });
+      } else box(g, w - 2 * f, CUT_H - 0.03, 0.05, optMat(byId(C.STEEL_DOOR_COLORS, cfg.steelColor), { r: 0.45, m: 0.5 }), u, (CUT_H + 0.03) / 2, 0);
+    }
     const longWall = (which) => {
       SEC = 'exterior';
       const s = sideGroup(WG[which === 'front' ? 1 : -1].wall.c, which, 0);
       const spans = (cfg.glassSpans || []).filter((q) => q.w === which);
       const gates = (cfg.gates || []).filter((q) => q.w === which);
       const mainDoor = which === 'front' && entry.wall === 'front' ? entry.x : null;
-      if (CS[which]) { wallMesh(s.g, longLen, 0.9, T, [], wallMats); return; }
+      if (CS[which]) { // cutaway: keep glass and doors on the cut wall
+        const ops = [];
+        const glassEntry = cfg.entrance !== 'steel';
+        const doorsOn = gates.map((q) => ({ x: q.x, w: GATE_W, glass: true })).concat(mainDoor != null ? [{ x: mainDoor, w: entW, glass: glassEntry }] : []);
+        if (which === 'front' && (cfg.curtain === 'front' || cfg.curtain === 'both')) {
+          ops.push({ u: 0, w: longLen, kind: 'glass', gaps: doorsOn.map((d) => ({ u: s.u(d.x), w: d.w, glass: d.glass })) });
+        } else {
+          spans.forEach((q) => {
+            const mid = (q.a + q.b) / 2;
+            ops.push({ u: s.u(mid), w: q.b - q.a, kind: 'glass', gaps: doorsOn.filter((d) => d.x > q.a && d.x < q.b).map((d) => ({ u: s.u(d.x) - s.u(mid), w: d.w, glass: d.glass })) });
+          });
+          doorsOn.filter((d) => !spans.some((q) => d.x > q.a && d.x < q.b)).forEach((d) => ops.push({ u: s.u(d.x), w: d.w, kind: 'door', glassDoor: d.glass }));
+        }
+        cutWall(s.g, longLen, ops);
+        return;
+      }
       if (which === 'front' && curtainFront) { // whole long side glazed
         const gaps = gates.map((q) => ({ u: s.u(q.x), w: GATE_W, h: GATE_H }));
         if (mainDoor != null) gaps.push({ u: s.u(mainDoor), w: entW, h: entH });
@@ -651,9 +688,24 @@
     const endPiece = (which, module, zc, len, kind) => {
       SEC = 'exterior';
       const s = sideGroup(module, which, zc);
-      if (CS[which]) { wallMesh(s.g, len, 0.9, T, [], wallMats); return; } // cutaway: camera-facing end wall
       const isEast = which === 'east', entryEnd = which === (entry.side || 'east');
       const coreDoor = kind === 'core' && entryEnd && entry.wall === 'end';
+      if (CS[which]) { // cutaway: camera-facing end wall, cut to 0.9 m but keeping its glass and doors
+        const glassEntry = cfg.entrance !== 'steel';
+        if (entryEnd && curtainEnd) { cutWall(s.g, len, [{ u: 0, w: len - 0.02, kind: 'glass', gaps: coreDoor ? [{ u: 0, w: entW, glass: glassEntry }] : [] }]); return; }
+        const bathC = kind === 'core' && (isEast ? bathE : bathW), pz0c = zc - len / 2, pz1c = zc + len / 2;
+        const sp = bathC ? [] : (cfg.glassSpans || []).filter((q) => q.w === which)
+          .map((q) => ({ a: Math.max(q.a, pz0c + 0.03), b: Math.min(q.b, pz1c - 0.03) })).filter((q) => q.b - q.a >= 0.4);
+        const gt = bathC || coreDoor ? null : (cfg.gates || []).find((q) => q.w === which && q.x > pz0c && q.x < pz1c);
+        const door = coreDoor ? { u: 0, w: entW, glass: glassEntry } : gt ? { u: 0, w: GATE_W, glass: true } : null;
+        const ops = sp.map((q) => {
+          const ua = s.u(q.a), ub = s.u(q.b), u0 = Math.min(ua, ub), u1 = Math.max(ua, ub), um = (u0 + u1) / 2;
+          return { u: um, w: u1 - u0, kind: 'glass', gaps: door && door.u > u0 && door.u < u1 ? [{ u: door.u - um, w: door.w, glass: door.glass }] : [] };
+        });
+        if (door && !ops.some((o) => door.u > o.u - o.w / 2 && door.u < o.u + o.w / 2)) ops.push({ u: door.u, w: door.w, kind: 'door', glassDoor: door.glass });
+        cutWall(s.g, len, ops);
+        return;
+      }
       if (entryEnd && curtainEnd) {
         if (coreDoor) {
           makeEntrance(s.g, 0);
@@ -854,6 +906,23 @@
         for (const dx of [-0.18, 0, 0.18]) cyl(inner, 0.05, 0.05, 0.01, stdMat('#ffb36b', { em: '#ffb36b', ei: 1.2 }), hx + dx, CEIL - 0.032, hz, { noShadow: true });
       }
     });
+
+    // cutaway (Interior: Cut): bathroom fittings are trimmed at the same 0.9 m as the walls, so the bathroom opens up
+    // like every other room (glass screen, shower column, mirror, heater, vents above the cut are cut away)
+    if (cutIn) {
+      const cutY = F + IH + 0.001, bx = new T3.Box3(), kill = [];
+      root.updateMatrixWorld(true);
+      inner.traverse((o) => {
+        if (!o.isMesh || o.userData.sec !== 'bathroom') return;
+        bx.setFromObject(o);
+        if (bx.min.y >= cutY - 0.005) { kill.push(o); return; }
+        if (bx.max.y <= cutY) return;
+        const g = o.geometry; g.computeBoundingBox();
+        const lb = g.boundingBox, sc = (cutY - bx.min.y) / (bx.max.y - bx.min.y); // parents only turn about Y, so local Y = world Y
+        g.translate(0, -lb.min.y, 0); g.scale(1, sc, 1); g.translate(0, lb.min.y, 0);
+      });
+      kill.forEach((o) => { o.parent.remove(o); o.geometry.dispose(); });
+    }
 
     // ---- kitchens (L-shape: run along the core strip + return along the cell's west side)
     if (kitchens.length) {

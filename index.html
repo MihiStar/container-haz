@@ -119,6 +119,10 @@ header#top {
 .actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
 .btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--r); min-height: 34px; padding: 0 12px; cursor: pointer; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; transition: border-color .12s, background .12s; }
 .btn:hover { border-color: var(--ink); }
+.lang-seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--r); overflow: hidden; min-height: 34px; }
+.lang-seg button { border: 0; background: var(--surface); color: var(--muted); font: 600 12px var(--f-mono); letter-spacing: .06em; padding: 0 10px; cursor: pointer; }
+.lang-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.lang-seg button:not([aria-pressed="true"]):hover { color: var(--ink); }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.upgrades { background: var(--upg-bg); border-color: color-mix(in srgb, var(--upg) 45%, transparent); }
 .btn.upgrades b { color: var(--upg); font-family: var(--f-mono); }
@@ -373,6 +377,32 @@ body.present #frameBar { display: none; }
 
 /* ---- dialogs */
 dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow); width: min(720px, calc(100vw - 32px)); max-height: calc(100% - 48px); }
+#dlgPresets { width: min(1080px, calc(100vw - 32px)); }
+.ps-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ps-tabs button { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 6px 14px; font: 600 12.5px var(--f-mono); cursor: pointer; color: var(--muted); }
+.ps-tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.ps-tabs button small { font-weight: 500; opacity: .7; margin-left: 4px; }
+.ps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.ps-card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; background: var(--surface); transition: transform .15s, box-shadow .15s; }
+.ps-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,.14); }
+.ps-hero { position: relative; height: 128px; background-size: 96px; background-color: #444; display: grid; place-items: center; }
+.ps-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,.35)); pointer-events: none; }
+.ps-hero { overflow: hidden; }
+.ps-hero .ps-plan { max-width: 80%; background: rgba(255,255,255,.94); border-radius: 8px; padding: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.25); position: relative; z-index: 1; line-height: 0; }
+.ps-hero .ps-plan svg { display: block; height: 86px; width: auto; max-width: 100%; }
+.ps-hero .ps-tag { position: absolute; left: 10px; top: 10px; z-index: 2; font: 700 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--upg, #f2b33d); color: #2a1d02; }
+.ps-hero .ps-sw { position: absolute; right: 10px; bottom: 8px; z-index: 2; display: flex; gap: 4px; }
+.ps-hero .ps-sw span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255,255,255,.9); background-size: cover; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.ps-body { padding: 12px 14px 14px; display: grid; gap: 8px; flex: 1; align-content: start; }
+.ps-body h4 { margin: 0; font-family: var(--f-display); font-stretch: 85%; font-size: 18px; text-transform: uppercase; letter-spacing: .02em; }
+.ps-body .ps-meta { font: 500 11.5px var(--f-mono); color: var(--muted); }
+.ps-body p { margin: 0; font-size: 13px; line-height: 1.45; }
+.ps-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ps-chips span { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink); background: var(--surface-2); }
+.ps-why summary { cursor: pointer; font: 600 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.ps-why ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+.ps-foot { padding: 0 14px 14px; }
+.ps-foot .btn { width: 100%; justify-content: center; }
 dialog::backdrop { background: rgba(8, 12, 18, .5); backdrop-filter: blur(2px); }
 .dlg-h { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
 .dlg-h h2 { margin: 0; font-family: var(--f-display); font-stretch: 80%; font-size: 19px; text-transform: uppercase; letter-spacing: .03em; }
@@ -532,12 +562,18 @@ body.present #scenePanel { top: 56px; }
     </div>
     <div id="modelSum"></div>
     <div class="actions">
+      <button type="button" class="btn" id="btnPresets" title="Ready-made designs for every container size">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 1.5h4.5v4.5H1.5zM8 1.5h4.5v4.5H8zM1.5 8h4.5v4.5H1.5zM8 8h4.5v4.5H8z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>Presets</button>
       <button type="button" class="btn upgrades" id="btnSpec"><b id="upCount">0</b> upgrades &middot; Specification</button>
       <button type="button" class="btn" id="btnDesigns">
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2h8l2 2v8H2zM4.5 2v3.5h5V2M4 12V8.5h6V12" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>Save &amp; share</button>
       <button type="button" class="btn" id="btnShot">
         <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M1.5 4h3l1-1.5h3L9.5 4h3v8h-11z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="7" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>Snapshot</button>
       <button type="button" class="btn" id="btnReset">Reset</button>
+      <div class="lang-seg" role="group" aria-label="Language" data-noi18n>
+        <button type="button" data-lang="en" aria-pressed="true" title="English">EN</button>
+        <button type="button" data-lang="hu" aria-pressed="false" title="Magyar">HU</button>
+      </div>
     </div>
   </header>
 
@@ -664,6 +700,15 @@ body.present #scenePanel { top: 56px; }
   <div class="dlg-b" id="specBody"></div>
 </dialog>
 
+<dialog id="dlgPresets" aria-labelledby="presetsTitle">
+  <div class="dlg-h"><h2 id="presetsTitle">Presets</h2><button type="button" class="btn" data-close>Close</button></div>
+  <div class="dlg-b">
+    <p class="note">Ready-made designs for each container size. Each one is a complete combination of catalog options with the reasoning behind it. Load one, then change anything you like.</p>
+    <div class="ps-tabs" id="psTabs" role="tablist" aria-label="Container size"></div>
+    <div class="ps-grid" id="psGrid"></div>
+  </div>
+</dialog>
+
 <dialog id="dlgDesigns" aria-labelledby="designsTitle">
   <div class="dlg-h"><h2 id="designsTitle">Save &amp; share</h2><button type="button" class="btn" data-close>Close</button></div>
   <div class="dlg-b">
@@ -703,7 +748,10 @@ body.present #scenePanel { top: 56px; }
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/i18n-hu.js"></script>
+<script src="js/i18n.js"></script>
 <script src="js/catalog.js"></script>
+<script src="js/presets.js"></script>
 <script src="js/textures.js"></script>
 <script src="js/layout.js"></script>
 <script src="js/house.js"></script>
