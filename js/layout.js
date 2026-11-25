@@ -105,7 +105,7 @@
       const bx0 = side === 'W' ? x0 : x1 - bl, bx1 = side === 'W' ? x0 + bl : x1;
       const inner = side === 'W' ? bx1 : bx0;
       const dz = eb && eb.doorZ != null ? Math.max(zB + 0.45, Math.min(zF - 0.45, +eb.doorZ)) : (zB + zF) / 2;
-      return { side, x0: bx0, x1: bx1, z0: zB, z1: zF, len: bl, maxLen: maxL, inner, door: { x: inner, z: dz, w: 0.72 }, name: plan.baths.length > 1 ? 'Bathroom ' + (i + 1) : 'Bathroom' };
+      return { side, x0: bx0, x1: bx1, z0: zB, z1: zF, len: bl, maxLen: maxL, inner, door: { x: inner, z: dz, w: 0.72, swing: eb && eb.swing === -1 ? -1 : 1, hinge: eb && eb.hinge === -1 ? -1 : 1 }, name: plan.baths.length > 1 ? 'Bathroom ' + (i + 1) : 'Bathroom' };
     });
     const inBath = (x) => baths.some((b) => x > b.x0 - 0.45 && x < b.x1 + 0.45);
 
@@ -281,8 +281,8 @@
     });
     return {
       v: 1, walls,
-      baths: Y.baths.map((b) => ({ side: b.side, len: +b.len.toFixed(3), doorZ: +b.door.z.toFixed(3) })),
-      doors: Y.doors.map((d) => ({ o: d.o, at: +(+d.at).toFixed(3), p: +(+d.p).toFixed(3), w: d.w, into: d.into })),
+      baths: Y.baths.map((b) => ({ side: b.side, len: +b.len.toFixed(3), doorZ: +b.door.z.toFixed(3), swing: b.door.swing, hinge: b.door.hinge })),
+      doors: Y.doors.map((d) => ({ o: d.o, at: +(+d.at).toFixed(3), p: +(+d.p).toFixed(3), w: d.w, into: d.into, hinge: d.hinge === -1 ? -1 : 1 })),
       wins: { front: Y.frontXs.map((x) => +x.toFixed(3)), back: Y.backXs.map((x) => +x.toFixed(3)) },
     };
   }

@@ -161,13 +161,19 @@
       ln.gaps.filter((g) => g.at > a && g.at < b).forEach((g) => rect(ln.at - PT / 2 - 0.01, g.at - g.w / 2, PT + 0.02, g.w, 'pl-gapin'));
     }));
     (Y.doors || []).forEach((d) => { // room doors: generated or edited; into = swing side
-      const w = d.w - 0.02;
-      if (d.o === 'h') leafPair([d.p - w / 2, d.at], [1, 0], [0, d.into], w, d.into < 0 ? 1 : 0);
-      else leafPair([d.at, d.p + w / 2], [0, -1], [d.into, 0], w, d.into > 0 ? 0 : 1);
+      const w = d.w - 0.02, fl = d.hinge === -1;
+      if (d.o === 'h') {
+        const sw = d.into < 0 ? 1 : 0;
+        if (!fl) leafPair([d.p - w / 2, d.at], [1, 0], [0, d.into], w, sw); else leafPair([d.p + w / 2, d.at], [-1, 0], [0, d.into], w, 1 - sw);
+      } else {
+        const sw = d.into > 0 ? 0 : 1;
+        if (!fl) leafPair([d.at, d.p + w / 2], [0, -1], [d.into, 0], w, sw); else leafPair([d.at, d.p - w / 2], [0, 1], [d.into, 0], w, 1 - sw);
+      }
     });
     baths.forEach((b) => { // opens out into the hall
-      const out = b.side === 'W' ? 1 : -1, w = 0.7;
-      leafPair([b.inner, b.door.z + w / 2], [0, -1], [out, 0], w, out > 0 ? 0 : 1);
+      const out = (b.side === 'W' ? 1 : -1) * (b.door.swing === -1 ? -1 : 1), w = 0.7, sw = out > 0 ? 0 : 1;
+      if (b.door.hinge !== -1) leafPair([b.inner, b.door.z + w / 2], [0, -1], [out, 0], w, sw);
+      else leafPair([b.inner, b.door.z - w / 2], [0, 1], [out, 0], w, 1 - sw);
     });
 
     // ---- bathroom fixtures (always drawn: fixed installation)
@@ -271,6 +277,17 @@
       if (wl.o === 'h') line(wl.a, wl.at, wl.b, wl.at, 'pl-edit-wall'); else line(wl.at, wl.a, wl.at, wl.b, 'pl-edit-wall');
     });
     if (opts.editWalls) baths.forEach((b) => line(b.inner, zB, b.inner, zF, 'pl-edit-wall')); // bathroom: inner wall resizes, door slides
+    if (opts.editWalls) { // door option markers: a small arrow on the swing side of each door (click for hinge / swing options)
+      const mark = (x, z, dx, dz, attr) => {
+        const ang = Math.atan2(dz, dx) * 180 / Math.PI;
+        s.push(`<g class="pl-dmark" ${attr} transform="translate(${n(x)} ${n(z)})"><circle r="0.17"/><path d="M-0.07 -0.06 L0.06 0 L-0.07 0.06" transform="rotate(${n(ang)})"/></g>`);
+      };
+      (Y.doors || []).forEach((d, i) => {
+        if (d.o === 'h') mark(d.p, d.at + d.into * 0.32, 0, d.into, `data-dmark="${i}"`);
+        else mark(d.at + d.into * 0.32, d.p, d.into, 0, `data-dmark="${i}"`);
+      });
+      baths.forEach((b) => { const out = (b.side === 'W' ? 1 : -1) * (b.door.swing === -1 ? -1 : 1); mark(b.inner + out * 0.32, b.door.z, out, 0, `data-dmark-bath="${b.side}"`); });
+    }
     (opts.issues || []).forEach((is, i) => {
       is.rects.forEach(([x, z, w, h]) => s.push(`<rect x="${n(x)}" y="${n(z)}" width="${n(w + 0.002)}" height="${n(h + 0.002)}" class="pl-iss-${is.sev}"/>`));
     });

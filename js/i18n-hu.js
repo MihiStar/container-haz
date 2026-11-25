@@ -958,6 +958,28 @@ window.CHZ = window.CHZ || {};
     "A full glass front works as a shop window; LED strips and downlights light the display.": "A teljes üveghomlokzat kirakatként működik; a LED-szalagok és spotlámpák megvilágítják a kiállított árut.",
     "Carborundum SPC takes foot traffic, and the open shell can be divided later.": "A karborundumos SPC bírja a nagy forgalmat, az üres héj pedig később is felosztható.",
 
+    // ---------------------------------------------------------------- door options menu
+    "Door": "Ajtó",
+    "Room door": "Szobaajtó",
+    "Bathroom door": "Fürdőszobaajtó",
+    "Swing to the other side": "Nyitásirány megfordítása",
+    "Hinge on the other side": "Zsanér a másik oldalra",
+    "Remove door": "Ajtó törlése",
+    "Now opens toward the back": "Jelenleg hátrafelé nyílik",
+    "Now opens toward the front": "Jelenleg előrefelé nyílik",
+    "Now opens toward the east": "Jelenleg kelet felé nyílik",
+    "Now opens toward the west": "Jelenleg nyugat felé nyílik",
+    "Now opens into the bathroom": "Jelenleg a fürdőszobába nyílik",
+    "Now opens out into the hall": "Jelenleg a közlekedőbe nyílik",
+    "Now hinged on the west side": "Zsanér jelenleg a nyugati oldalon",
+    "Now hinged on the east side": "Zsanér jelenleg a keleti oldalon",
+    "Now hinged on the front side": "Zsanér jelenleg az elülső oldalon",
+    "Now hinged on the back side": "Zsanér jelenleg a hátsó oldalon",
+    "Door now swings to the other side.": "Az ajtó most a másik irányba nyílik.",
+    "Door now hinged on the other side.": "Az ajtó zsanérja most a másik oldalon van.",
+    "Door added. Click it (or its blue arrow) for hinge and swing options.": "Ajtó beillesztve. Kattintson rá (vagy a kék nyílra) a zsanér és a nyitásirány beállításához.",
+    "Click an interior wall to add a door. Click a door, its blue arrow, or hold on it for hinge and swing options.": "Kattintson egy belső falra ajtó beillesztéséhez. Egy ajtóra, a kék nyilára kattintva vagy rajta hosszan nyomva állítható a zsanér és a nyitásirány.",
+
     // presentation title card / summary pieces
     "Flat roof": "Lapostető",
     "Gable roof": "Nyeregtető",

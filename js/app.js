@@ -1264,7 +1264,7 @@
     gate: 'Click any outer wall to place a glass double door (end walls: one per panel).',
     erase: 'Click a glass section, glass door, interior wall, room door or window to remove it.',
     wall: 'Drag inside the house to draw an interior wall (it snaps to other walls).',
-    door: 'Click an interior wall to add a door. Click a door to flip its swing.',
+    door: 'Click an interior wall to add a door. Click a door, its blue arrow, or hold on it for hinge and swing options.',
     win: 'Click the front or back wall to add a window.',
     move: 'Drag an interior wall, room door or window. Bathroom: drag its inner wall to resize, or its door to slide it.',
   };
@@ -1352,6 +1352,62 @@
     cands.forEach((c) => { const d = Math.abs(c - v); if (d < bd) { bd = d; best = c; } });
     return r3(best);
   }
+  // ---- door options menu (Advanced): swing side, hinge side, remove. Opened from the arrow marker, a click with the Door tool, or a long press
+  let doorMenuFor = null;
+  function doorAt(p) { // room door index, or { bath: side }
+    const Y = CHZ.layout(cfg);
+    for (const bt of Y.baths) if (Math.abs(p.x - bt.inner) < 0.45 && Math.abs(p.y - bt.door.z) < 0.45) return { bath: bt.side };
+    const i = (Y.doors || []).findIndex((d) => {
+      const along = d.o === 'h' ? p.x : p.y, across = d.o === 'h' ? p.y : p.x;
+      return Math.abs(along - d.p) < d.w / 2 + 0.08 && Math.abs(across - d.at) < 0.5;
+    });
+    return i >= 0 ? { i } : null;
+  }
+  function describeDoor(target) {
+    const Y = CHZ.layout(cfg);
+    if (target.bath) {
+      const bt = Y.baths.find((q) => q.side === target.bath);
+      return { title: 'Bathroom door', swing: bt.door.swing === -1 ? 'Now opens into the bathroom' : 'Now opens out into the hall', hinge: bt.door.hinge === -1 ? 'Now hinged on the back side' : 'Now hinged on the front side', removable: false };
+    }
+    const d = Y.doors[target.i];
+    const h = d.hinge === -1 ? (d.o === 'h' ? 'Now hinged on the east side' : 'Now hinged on the back side') : (d.o === 'h' ? 'Now hinged on the west side' : 'Now hinged on the front side');
+    const sw = d.o === 'h' ? (d.into < 0 ? 'Now opens toward the back' : 'Now opens toward the front') : (d.into > 0 ? 'Now opens toward the east' : 'Now opens toward the west');
+    return { title: 'Room door', swing: sw, hinge: h, removable: true };
+  }
+  function openDoorMenu(target, clientX, clientY) {
+    doorMenuFor = target;
+    const info = describeDoor(target), m = $('#doorMenu'), host = $('#planView').getBoundingClientRect();
+    $('#dmTitle').textContent = info.title;
+    $('#dmSwing').textContent = info.swing; $('#dmHinge').textContent = info.hinge;
+    m.querySelector('[data-dm="remove"]').hidden = !info.removable;
+    m.hidden = false;
+    const mw = m.offsetWidth, mh = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(host.width - mw - 8, clientX - host.left + 12)) + 'px';
+    m.style.top = Math.max(8, Math.min(host.height - mh - 8, clientY - host.top + 12)) + 'px';
+  }
+  function closeDoorMenu() { doorMenuFor = null; $('#doorMenu').hidden = true; }
+  $('#doorMenu').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dm]'); if (!b || !doorMenuFor) return;
+    const act = b.dataset.dm, tg = doorMenuFor;
+    if (act === 'close') { closeDoorMenu(); return; }
+    const E = cloneEdit();
+    if (tg.bath) {
+      const eb = E.baths.find((q) => q.side === tg.bath); if (!eb) return;
+      if (act === 'swing') eb.swing = eb.swing === -1 ? 1 : -1;
+      if (act === 'hinge') eb.hinge = eb.hinge === -1 ? 1 : -1;
+    } else {
+      const d = E.doors[tg.i]; if (!d) return;
+      if (act === 'swing') d.into = -d.into;
+      if (act === 'hinge') d.hinge = d.hinge === -1 ? 1 : -1;
+      if (act === 'remove') { E.doors.splice(tg.i, 1); setValue('edit', E); closeDoorMenu(); toast('Door removed.'); return; }
+    }
+    setValue('edit', E);
+    toast(act === 'swing' ? 'Door now swings to the other side.' : 'Door now hinged on the other side.');
+    const keep = tg; openDoorMenu(keep, parseFloat($('#doorMenu').style.left) + $('#planView').getBoundingClientRect().left - 12, parseFloat($('#doorMenu').style.top) + $('#planView').getBoundingClientRect().top - 12);
+  });
+  document.addEventListener('pointerdown', (e) => { if (doorMenuFor && !e.target.closest('#doorMenu') && !e.target.closest('.pl-dmark')) closeDoorMenu(); }, true);
+  let lpTimer = null, lpStart = null;
+
   let editDrag = null, editLine = null;
   function editPreview(x1, y1, x2, y2) {
     const sv = planHost.querySelector('svg');
@@ -1368,17 +1424,17 @@
     }
     const E = cloneEdit();
     if (t === 'door') {
+      const dt = doorAt(p);
+      if (dt) { openDoorMenu(dt, e.clientX, e.clientY); return; }
       if (hitBath(p)) { toast('The bathroom has one door. Use Move to slide it along the wall.'); return; }
-      const di = hitEditDoor(p, E);
-      if (di >= 0) { E.doors[di].into = -E.doors[di].into; setValue('edit', E); toast('Door swing flipped.'); return; }
       const wi = hitEditWall(p, E);
       if (wi == null) { toast(Y.vWalls.some((l) => Math.abs(l.at - p.x) < 0.2) || Y.hWalls.some((l) => Math.abs(l.at - p.y) < 0.2) ? 'That is a bathroom wall: its door is fixed.' : 'Click on an interior wall.'); return; }
       const wl = E.walls[wi], w = 0.82, along = wl.o === 'h' ? p.x : p.y;
       if (wl.b - wl.a < w + 0.2) { toast('This wall is too short for a door.'); return; }
       const pos = r3(Math.max(wl.a + w / 2 + 0.1, Math.min(wl.b - w / 2 - 0.1, snap(along))));
       if (E.doors.some((d) => d.o === wl.o && Math.abs(d.at - wl.at) < 0.01 && Math.abs(d.p - pos) < (d.w + w) / 2 + 0.1)) { toast('There is already a door there.'); return; }
-      E.doors.push({ o: wl.o, at: wl.at, p: pos, w, into: wl.o === 'h' ? (wl.at < 0 ? -1 : 1) : 1 });
-      setValue('edit', E); toast('Door added. Click it again to flip the swing.'); return;
+      E.doors.push({ o: wl.o, at: wl.at, p: pos, w, into: wl.o === 'h' ? (wl.at < 0 ? -1 : 1) : 1, hinge: 1 });
+      setValue('edit', E); toast('Door added. Click it (or its blue arrow) for hinge and swing options.'); return;
     }
     if (t === 'win') {
       const hit = wallHit(p);
@@ -1400,7 +1456,21 @@
       const wn = hitWindow(p, E);
       if (wn) { editDrag = { t, kind: 'win', E, w: wn.w, i: wn.i }; planHost.setPointerCapture(e.pointerId); return; }
       const wi = hitEditWall(p, E);
-      if (wi != null) { editDrag = { t, kind: 'wall', E, i: wi, at0: E.walls[wi].at }; planHost.setPointerCapture(e.pointerId); return; }
+      if (wi != null) {
+        const wl0 = E.walls[wi], conn = [];
+        // other walls (and bathroom walls) in the moved wall's direction: a corner they also use must stay where it is
+        const Yb = CHZ.layout(cfg), same = E.walls.filter((q, j) => j !== wi && q.o === wl0.o).map((q) => ({ at: q.at, a: q.a, b: q.b }));
+        Yb.baths.forEach((bt) => { if (wl0.o === 'h') { same.push({ at: Yb.zB, a: bt.x0, b: bt.x1 }, { at: Yb.zF, a: bt.x0, b: bt.x1 }); } else same.push({ at: bt.inner, a: Yb.zB, b: Yb.zF }); });
+        const sharedJoint = (along, at) => same.some((q) => Math.abs(q.at - at) < 0.08 && along >= q.a - 0.08 && along <= q.b + 0.08);
+        E.walls.forEach((q, j) => { // perpendicular walls whose end touches this wall follow it, unless another wall also meets them there
+          if (j === wi || q.o === wl0.o || q.at < wl0.a - 0.08 || q.at > wl0.b + 0.08) return;
+          for (const end of ['a', 'b']) {
+            if (Math.abs(q[end] - wl0.at) >= 0.08 || sharedJoint(q.at, wl0.at)) continue;
+            conn.push({ j, end }); break;
+          }
+        });
+        editDrag = { t, kind: 'wall', E, i: wi, at0: wl0.at, conn }; planHost.setPointerCapture(e.pointerId); return;
+      }
       toast('Grab an interior wall, a room door, a window, or the bathroom wall / door.'); return;
     }
   }
@@ -1438,11 +1508,36 @@
     } else {
       const wl = E.walls[editDrag.i], old = wl.at, nat = r3(snap(wl.o === 'h' ? p.y : p.x));
       if (wallFits(E, Object.assign({}, wl, { at: nat }), editDrag.i)) return;
+      // joined walls stretch or shrink with it; refuse a move that would squash one below 0.3 m
+      const conn = editDrag.conn || [];
+      if (conn.some(({ j, end }) => { const q = E.walls[j]; const other = end === 'a' ? q.b : q.a; return Math.abs(other - nat) < 0.3; })) return;
       wl.at = nat;
       E.doors.forEach((d) => { if (d.o === wl.o && Math.abs(d.at - old) < 0.01 && d.p >= wl.a && d.p <= wl.b) d.at = nat; });
+      conn.forEach(({ j, end }) => {
+        const q = E.walls[j];
+        q[end] = nat;
+        if (q.a > q.b) { const t0 = q.a; q.a = q.b; q.b = t0; editDrag.conn = conn.map((c) => (c.j === j ? { j, end: c.end === 'a' ? 'b' : 'a' } : c)); }
+        E.doors.forEach((d) => { // a door on a shortened wall stays on it
+          if (d.o !== q.o || Math.abs(d.at - q.at) > 0.01) return;
+          d.p = r3(Math.max(q.a + d.w / 2 + 0.1, Math.min(q.b - d.w / 2 - 0.1, d.p)));
+        });
+      });
     }
     editDrag.moved = true;
     const keep = cfg.edit; cfg.edit = E; renderPlan(false); cfg.edit = keep; // live preview, 3D updates on release
+  }
+  // loose wall ends within 0.3 m of a crossing wall (or the outer wall) snap onto it, so no wall is left hanging
+  function healEnds(E) {
+    const Y = CHZ.layout(Object.assign({}, cfg, { edit: E }));
+    E.walls.forEach((wl) => {
+      const lines = wl.o === 'h' ? [Y.x0, Y.x1].concat(Y.vWalls.map((l) => l.at)) : [Y.z0, Y.z1].concat(Y.hWalls.map((l) => l.at));
+      for (const end of ['a', 'b']) {
+        if (lines.some((c) => Math.abs(c - wl[end]) < 0.005)) continue;
+        let best = null, bd = 0.3;
+        lines.forEach((c) => { const d = Math.abs(c - wl[end]); if (d < bd) { bd = d; best = c; } });
+        if (best != null) wl[end] = r3(best);
+      }
+    });
   }
   function editUp(e) {
     if (!editDrag) return;
@@ -1460,6 +1555,7 @@
       setValue('edit', E); toast('Wall added (' + (wl.b - wl.a).toFixed(2) + ' m). Add a door with the Door tool.'); return;
     }
     if (dr.moved) {
+      if (dr.kind === 'wall' || dr.kind === 'bathWall') healEnds(dr.E);
       setValue('edit', dr.E);
       const bt = dr.kind === 'bathWall' && CHZ.layout(cfg).baths.find((q) => q.side === dr.side);
       toast(dr.kind === 'wall' ? 'Wall moved.' : dr.kind === 'door' ? 'Door moved.' : dr.kind === 'bathDoor' ? 'Bathroom door moved.'
@@ -1574,10 +1670,27 @@
 
   let drag = null;
   planHost.addEventListener('pointerdown', (e) => {
+    const mk = e.target.closest && e.target.closest('.pl-dmark');
+    if (mk) { // door option arrow
+      e.preventDefault();
+      openDoorMenu(mk.dataset.dmarkBath ? { bath: mk.dataset.dmarkBath } : { i: Number(mk.dataset.dmark) }, e.clientX, e.clientY);
+      return;
+    }
+    if (view.planAdv) { // long press on a door opens its options
+      clearTimeout(lpTimer); lpStart = { x: e.clientX, y: e.clientY };
+      const p0 = svgPoint(e), cx0 = e.clientX, cy0 = e.clientY;
+      lpTimer = setTimeout(() => {
+        const dt = doorAt(p0); if (!dt) return;
+        editDrag = null; drawSpan = null; drag = null; planHost.classList.remove('grab');
+        if (editLine) { editLine.remove(); editLine = null; }
+        renderPlan(false); openDoorMenu(dt, cx0, cy0);
+      }, 480);
+    }
     if (view.planTool) { toolDown(e); return; }
     drag = { x: e.clientX, y: e.clientY, vb: pvb.slice() }; planHost.setPointerCapture(e.pointerId); planHost.classList.add('grab');
   });
   planHost.addEventListener('pointermove', (e) => {
+    if (lpStart && Math.hypot(e.clientX - lpStart.x, e.clientY - lpStart.y) > 6) { clearTimeout(lpTimer); lpStart = null; }
     if (editDrag) { editMove(e); return; }
     if (drawSpan) { showPreview(drawSpan.a, alongWall(svgPoint(e), drawSpan.w), drawSpan.w); return; }
     if (!drag) return;
@@ -1585,7 +1698,7 @@
     pvb = [drag.vb[0] - (e.clientX - drag.x) / sc, drag.vb[1] - (e.clientY - drag.y) / sc, pvb[2], pvb[3]];
     applyVB();
   });
-  const endDrag = (e) => { if (editDrag) editUp(e); if (drawSpan) toolUp(e); drag = null; planHost.classList.remove('grab'); };
+  const endDrag = (e) => { clearTimeout(lpTimer); lpStart = null; if (editDrag) editUp(e); if (drawSpan) toolUp(e); drag = null; planHost.classList.remove('grab'); };
   planHost.addEventListener('pointerup', endDrag);
   planHost.addEventListener('pointercancel', () => { editDrag = null; if (editLine) { editLine.remove(); editLine = null; } drawSpan = null; if (preview) { preview.remove(); preview = null; } drag = null; });
   $('#planTools').addEventListener('click', (e) => {

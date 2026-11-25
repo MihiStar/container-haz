@@ -243,6 +243,19 @@ body.present #frameBar { display: none; }
 #drawTools { bottom: 58px; left: 50%; transform: translateX(-50%); z-index: 3; align-items: center; max-width: calc(100% - 24px); flex-wrap: wrap; }
 #drawTools .dt-hint { font: 500 11px var(--f-mono); color: var(--hud-muted); padding: 0 8px; }
 #planHost.drawing { cursor: crosshair; }
+.pl-dmark { cursor: pointer; }
+.pl-dmark circle { fill: #2f86d6; stroke: #fff; stroke-width: .03; }
+.pl-dmark path { fill: none; stroke: #fff; stroke-width: .035; stroke-linecap: round; stroke-linejoin: round; }
+.pl-dmark:hover circle { fill: #1c6fbd; }
+.door-menu { position: absolute; z-index: 6; min-width: 230px; background: var(--hud); color: var(--hud-ink); border: 1px solid var(--hud-line); border-radius: 10px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.35); backdrop-filter: blur(10px); display: grid; gap: 2px; }
+.door-menu[hidden] { display: none !important; }
+.door-menu .dm-h { font: 600 10.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--hud-muted); padding: 4px 8px 6px; }
+.door-menu button { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 8px; text-align: left; border: 0; background: none; color: inherit; padding: 7px 8px; border-radius: 7px; cursor: pointer; font: 500 13px var(--f-ui, Inter, sans-serif); }
+.door-menu button:hover { background: rgba(255,255,255,.08); }
+.door-menu button b { display: block; font-weight: 600; }
+.door-menu button small { display: block; color: var(--hud-muted); font-size: 11.5px; margin-top: 1px; }
+.door-menu .dm-ic { font-size: 16px; text-align: center; }
+.door-menu .dm-close { grid-template-columns: 1fr; text-align: center; color: var(--hud-muted); font-size: 12px; }
 #drawTools .dt-adv { display: contents; }
 #drawTools .dt-adv[hidden] { display: none !important; }
 #drawTools .fb-sep { margin-left: 6px; border-left: 1px solid rgba(255,255,255,0.14); padding-left: 12px; }
@@ -582,6 +595,13 @@ body.present #scenePanel { top: 56px; }
 
     <div id="planView" hidden>
       <div id="planIssues" hidden></div>
+      <div id="doorMenu" class="door-menu" role="menu" hidden>
+        <div class="dm-h" id="dmTitle">Door</div>
+        <button type="button" role="menuitem" data-dm="swing"><span class="dm-ic">⇅</span><span><b>Swing to the other side</b><small id="dmSwing"></small></span></button>
+        <button type="button" role="menuitem" data-dm="hinge"><span class="dm-ic">⇄</span><span><b>Hinge on the other side</b><small id="dmHinge"></small></span></button>
+        <button type="button" role="menuitem" data-dm="remove"><span class="dm-ic">✕</span><span><b>Remove door</b></span></button>
+        <button type="button" role="menuitem" data-dm="close" class="dm-close">Close</button>
+      </div>
       <div id="planHost" aria-label="2D floor plan. Scroll to zoom, drag to pan."></div>
       <div class="toolbar" id="planTools" role="group" aria-label="Floor plan">
         <button type="button" data-popt="furniture" aria-pressed="true">Furniture</button>

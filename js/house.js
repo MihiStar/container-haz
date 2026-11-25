@@ -791,14 +791,16 @@
     // room doors (generated or edited on the 2D plan); into = swing side
     SEC = 'openings';
     (LY.doors || []).forEach((d) => {
-      const w = d.w - 0.02;
+      const w = d.w - 0.02, flip = d.hinge === -1; // hinge -1: hinged on the other jamb (leaf mirrored)
       if (d.o === 'h') {
         const p = hGroups[(+d.at).toFixed(3) + '|' + (+d.p).toFixed(3)];
         // hinge on the west edge, leaf along +x; positive angle swings toward -z, negative toward +z
-        if (p) doorLeaf(p.g, p.u(d.p) - w / 2, 0, w, DH, 'plain', roomDoorM, d.into < 0 ? 1.2 : -1.2);
+        const a = d.into < 0 ? 1.2 : -1.2;
+        if (p) doorLeaf(p.g, p.u(d.p) + (flip ? w / 2 : -w / 2), 0, w, DH, 'plain', roomDoorM, flip ? Math.PI - a : a);
       } else {
         const p = vGroups[(+d.at).toFixed(3) + '|' + (+d.p).toFixed(3)];
-        if (p) doorLeaf(p.g, p.u(d.p) - w / 2, 0, w, DH, 'plain', roomDoorM, d.into > 0 ? -1.1 : 1.1);
+        const a = d.into > 0 ? -1.1 : 1.1;
+        if (p) doorLeaf(p.g, p.u(d.p) + (flip ? w / 2 : -w / 2), 0, w, DH, 'plain', roomDoorM, flip ? Math.PI - a : a);
       }
     });
 
@@ -818,7 +820,8 @@
       const p = vGroups[b.inner.toFixed(3) + '|' + b.door.z.toFixed(3)];
       if (p) {
         const st = cfg.bathDoor, m = st === 'std' ? whiteM : roomDoorM;
-        doorLeaf(p.g, p.u(b.door.z) - 0.35, 0, 0.7, DH, st === 'rainbow' || st === 'chinese' ? st : 'plain', m, s > 0 ? -1.1 : 1.1);
+        const a = (s > 0 ? -1.1 : 1.1) * (b.door.swing === -1 ? -1 : 1), flip = b.door.hinge === -1; // swing -1: opens into the bathroom
+        doorLeaf(p.g, p.u(b.door.z) + (flip ? 0.35 : -0.35), 0, 0.7, DH, st === 'rainbow' || st === 'chinese' ? st : 'plain', m, flip ? Math.PI - a : a);
       }
       // wall linings
       const blen = b.len - PT / 2;
