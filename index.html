@@ -576,7 +576,7 @@ body.present #scenePanel { top: 56px; }
   // On opening, an outdated page (kept by the browser cache) reloads itself to the newest release; your design is kept, it is
   // saved in the browser. If a release appears while the tab stays open, a small bar offers to reload instead of interrupting.
   (function () {
-    var BUILD = '20261126072836';
+    var BUILD = '20261126230346';
     if (BUILD.indexOf('__') === 0 || location.protocol === 'file:') return; // dev and local copies: no check
     function latest() {
       return fetch('version.json?nc=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return j && j.build ? String(j.build) : null; }).catch(function () { return null; });
@@ -807,16 +807,16 @@ body.present #scenePanel { top: 56px; }
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
-<script src="js/i18n-hu.js?v=20261126072836"></script>
-<script src="js/i18n.js?v=20261126072836"></script>
-<script src="js/catalog.js?v=20261126072836"></script>
-<script src="js/presets.js?v=20261126072836"></script>
-<script src="js/textures.js?v=20261126072836"></script>
-<script src="js/layout.js?v=20261126072836"></script>
-<script src="js/house.js?v=20261126072836"></script>
-<script src="js/plan.js?v=20261126072836"></script>
-<script src="js/benefits.js?v=20261126072836"></script>
-<script src="js/app.js?v=20261126072836"></script>
+<script src="js/i18n-hu.js?v=20261126230346"></script>
+<script src="js/i18n.js?v=20261126230346"></script>
+<script src="js/catalog.js?v=20261126230346"></script>
+<script src="js/presets.js?v=20261126230346"></script>
+<script src="js/textures.js?v=20261126230346"></script>
+<script src="js/layout.js?v=20261126230346"></script>
+<script src="js/house.js?v=20261126230346"></script>
+<script src="js/plan.js?v=20261126230346"></script>
+<script src="js/benefits.js?v=20261126230346"></script>
+<script src="js/app.js?v=20261126230346"></script>
 
 </body>
 </html>

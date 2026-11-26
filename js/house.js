@@ -569,27 +569,30 @@
     // glass curtain wall centred on the group origin; gaps = door openings ({u, w, h}), one object or a list
     function makeCurtain(g, len, h, gap) {
       SEC = 'openings';
-      const gaps = gap ? (Array.isArray(gap) ? gap : [gap]) : [];
-      const n = Math.max(1, Math.round(len / 1.05));
-      const bw = len / n;
-      for (let i = 0; i <= n; i++) {
-        const u = -len / 2 + i * bw;
-        if (gaps.some((q) => Math.abs(u - q.u) < q.w / 2 + 0.02)) continue;
-        box(g, 0.06, h, 0.11, frameM, u, h / 2, 0);
-      }
+      const gaps = (gap ? (Array.isArray(gap) ? gap : [gap]) : []).slice().sort((p, q) => p.u - q.u);
       box(g, len, 0.07, 0.11, frameM, 0, 0.035, 0);
       box(g, len, 0.07, 0.11, frameM, 0, h - 0.035, 0);
-      for (let i = 0; i < n; i++) {
-        const a = -len / 2 + i * bw, b = a + bw, mid = (a + b) / 2;
-        const q = gaps.find((q2) => b > q2.u - q2.w / 2 && a < q2.u + q2.w / 2);
-        if (q) {
-          const top = q.h + 0.04;
-          if (h - 0.07 - top > 0.05) box(g, bw - 0.06, h - 0.07 - top, 0.012, glassM, mid, (top + h - 0.07) / 2, 0, { noShadow: true });
-          box(g, bw, 0.05, 0.11, frameM, mid, q.h + 0.02, 0);
-          continue;
+      // the glass between doors is divided into its own even panes, so a door anywhere never leaves an empty bay beside it
+      let a = -len / 2;
+      const segs = [];
+      gaps.forEach((q) => { segs.push([a, q.u - q.w / 2, false, true]); a = q.u + q.w / 2; });
+      segs.push([a, len / 2, gaps.length > 0, false]);
+      segs.forEach(([s0, s1, doorL, doorR]) => {
+        const sl = s1 - s0;
+        if (sl < 0.04) return;
+        const n = Math.max(1, Math.round(sl / 1.05)), bw = sl / n;
+        for (let i = 0; i <= n; i++) {
+          if ((i === 0 && doorL) || (i === n && doorR)) continue; // the door frame closes that side
+          box(g, 0.06, h, 0.11, frameM, s0 + i * bw, h / 2, 0);
         }
-        box(g, bw - 0.06, h - 0.14, 0.012, glassM, mid, h / 2, 0, { noShadow: true });
-      }
+        for (let i = 0; i < n; i++) box(g, Math.max(0.01, bw - 0.06), h - 0.14, 0.012, glassM, s0 + (i + 0.5) * bw, h / 2, 0, { noShadow: true });
+      });
+      // above each door: a transom bar and a glass light up to the top rail
+      gaps.forEach((q) => {
+        const top = q.h + 0.04;
+        if (h - 0.07 - top > 0.05) box(g, q.w - 0.06, h - 0.07 - top, 0.012, glassM, q.u, (top + h - 0.07) / 2, 0, { noShadow: true });
+        box(g, q.w, 0.05, 0.11, frameM, q.u, q.h + 0.02, 0);
+      });
     }
 
     function sideGroup(parent, which, along) {
@@ -637,9 +640,20 @@
     const longWall = (which) => {
       SEC = 'exterior';
       const s = sideGroup(WG[which === 'front' ? 1 : -1].wall.c, which, 0);
-      const spans = (cfg.glassSpans || []).filter((q) => q.w === which);
       const gates = (cfg.gates || []).filter((q) => q.w === which);
       const mainDoor = which === 'front' && entry.wall === 'front' ? entry.x : null;
+      // a door that overlaps a glass section becomes part of it (the glass is extended to the door frame), so the glass
+      // never runs behind a door leaf; sections that then touch are merged
+      const dExt = gates.map((q) => [q.x - GATE_W / 2, q.x + GATE_W / 2]).concat(mainDoor != null ? [[mainDoor - entW / 2, mainDoor + entW / 2]] : []);
+      const spans = [];
+      (cfg.glassSpans || []).filter((q) => q.w === which).map((q) => {
+        let a = q.a, b = q.b;
+        dExt.forEach(([d0, d1]) => { if (d1 > a && d0 < b) { a = Math.min(a, d0); b = Math.max(b, d1); } });
+        return { w: which, a: Math.max(a, -longLen / 2), b: Math.min(b, longLen / 2) };
+      }).sort((p, q) => p.a - q.a).forEach((q) => {
+        const last = spans[spans.length - 1];
+        if (last && q.a <= last.b + 0.01) last.b = Math.max(last.b, q.b); else spans.push(q);
+      });
       if (CS[which]) { // cutaway: keep glass and doors on the cut wall
         const ops = [];
         const glassEntry = cfg.entrance !== 'steel';
@@ -686,6 +700,12 @@
     longWall('back');
     // ends: per module piece
     const wingLen = D - P, wingMid = c + (D - P) / 2;
+    // glass on an end panel that overlaps the panel's centred door is widened to the door frame (one section then)
+    const extendSpans = (sp, zc, w) => {
+      sp.forEach((q) => { if (zc + w / 2 > q.a && zc - w / 2 < q.b) { q.a = Math.min(q.a, zc - w / 2); q.b = Math.max(q.b, zc + w / 2); } });
+      sp.sort((p, q) => p.a - q.a);
+      for (let i = sp.length - 1; i > 0; i--) if (sp[i].a <= sp[i - 1].b + 0.01) { sp[i - 1].b = Math.max(sp[i - 1].b, sp[i].b); sp.splice(i, 1); }
+    };
     const endPiece = (which, module, zc, len, kind) => {
       SEC = 'exterior';
       const s = sideGroup(module, which, zc);
@@ -699,6 +719,7 @@
           .map((q) => ({ a: Math.max(q.a, pz0c + 0.03), b: Math.min(q.b, pz1c - 0.03) })).filter((q) => q.b - q.a >= 0.4);
         const gt = bathC || coreDoor ? null : (cfg.gates || []).find((q) => q.w === which && q.x > pz0c && q.x < pz1c);
         const door = coreDoor ? { u: 0, w: entW, glass: glassEntry } : gt ? { u: 0, w: GATE_W, glass: true } : null;
+        if (door) extendSpans(sp, zc, door.w);
         const ops = sp.map((q) => {
           const ua = s.u(q.a), ub = s.u(q.b), u0 = Math.min(ua, ub), u1 = Math.max(ua, ub), um = (u0 + u1) / 2;
           return { u: um, w: u1 - u0, kind: 'glass', gaps: door && door.u > u0 && door.u < u1 ? [{ u: door.u - um, w: door.w, glass: door.glass }] : [] };
@@ -720,6 +741,7 @@
       const dSpans = bathHere ? [] : (cfg.glassSpans || []).filter((q) => q.w === which)
         .map((q) => ({ a: Math.max(q.a, pz0 + 0.03), b: Math.min(q.b, pz1 - 0.03) })).filter((q) => q.b - q.a >= 0.4);
       const dGate = bathHere || coreDoor ? null : (cfg.gates || []).find((q) => q.w === which && q.x > pz0 && q.x < pz1);
+      if (dSpans.length && (coreDoor || dGate)) extendSpans(dSpans, zc, coreDoor ? entW : GATE_W);
       if (dSpans.length || dGate) {
         const uR = (q) => { const ua = s.u(q.a), ub = s.u(q.b); return [Math.min(ua, ub), Math.max(ua, ub)]; };
         const doors = coreDoor ? [{ u: 0, w: entW, h: entH, main: true }] : dGate ? [{ u: 0, w: GATE_W, h: GATE_H }] : [];
