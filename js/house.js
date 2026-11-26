@@ -28,7 +28,7 @@
   let maxAniso = 4;
   let Q = 'std'; // 'std' | 'hq' (presentation quality)
   // relief strength per texture kind, used as bump map in HQ mode
-  const BUMP = { rib: 0.012, wood: 0.004, flute: 0.03, boards: 0.012, stone: 0.035, brick: 0.03, planks: 0.004, herring: 0.005, checker: 0.02, concrete: 0.008, travertine: 0.006, terrazzo: 0.002, fabric: 0.003, marble: 0.001, camo: 0, digicamo: 0, solid: 0.001, cells: 0.004 };
+  const BUMP = { rib: 0.012, wood: 0.004, flute: 0.03, boards: 0.012, stone: 0.035, brick: 0.03, planks: 0.004, herring: 0.005, checker: 0.02, concrete: 0.008, travertine: 0.006, terrazzo: 0.002, speck: 0.003, fabric: 0.003, marble: 0.001, camo: 0, digicamo: 0, solid: 0.001, cells: 0.004 };
   // ---------------------------------------------------------------- realistic PBR texture sets
   // Photo-scanned CC0 sets from Poly Haven in assets/tex (colour + OpenGL normal + roughness).
   // size = real-world metres covered by one texture repeat (from Poly Haven metadata).
@@ -123,8 +123,8 @@
   // ---------------------------------------------------------------- HD catalog material (realistic mode)
   // Draws the listed catalog texture at high resolution and derives a matching normal map from it
   // (dark joints/grooves/grain read as recessed), so relief always lines up with the chosen pattern.
-  const RELIEF = { wood: 1.2, flute: 3.2, boards: 2.2, stone: 3.4, brick: 3.0, planks: 1.4, herring: 1.6, concrete: 1.0, travertine: 1.2, terrazzo: 0.6, fabric: 0.8, marble: 0.25, solid: 0.15, checker: 2.4, camo: 0, digicamo: 0 };
-  const ROUGH = { wood: 0.62, flute: 0.68, boards: 0.6, stone: 0.88, brick: 0.85, planks: 0.5, herring: 0.5, concrete: 0.85, travertine: 0.55, terrazzo: 0.35, fabric: 0.9, marble: 0.22, solid: 0.45, checker: 0.7 };
+  const RELIEF = { wood: 1.2, flute: 3.2, boards: 2.2, stone: 3.4, brick: 3.0, planks: 1.4, herring: 1.6, concrete: 1.0, travertine: 1.2, terrazzo: 0.6, speck: 0.5, fabric: 0.8, marble: 0.25, solid: 0.15, checker: 2.4, camo: 0, digicamo: 0 };
+  const ROUGH = { wood: 0.62, flute: 0.68, boards: 0.6, stone: 0.88, brick: 0.85, planks: 0.5, herring: 0.5, concrete: 0.85, travertine: 0.55, terrazzo: 0.35, speck: 0.6, fabric: 0.9, marble: 0.22, solid: 0.45, checker: 0.7 };
   function normalFromCanvas(cv) {
     const S = cv.width, src = cv.getContext('2d').getImageData(0, 0, S, S).data;
     const h = new Float32Array(S * S), b = new Float32Array(S * S);
@@ -934,7 +934,7 @@
       const cabOpt = C.CAB_FINISH.find((o) => o.id === cfg.cabFinish) || C.CAB_FINISH[0];
       const cabM = texMat(Object.assign({}, cabOpt.t, { tile: 1.2 }), { r: cabOpt.gloss ? 0.15 : 0.55, m: 0 });
       const ctOpt = byId(C.COUNTER[cfg.counterType], cfg.counter);
-      const ctM = texMat(Object.assign({}, ctOpt.t, { tile: 1.2 }), { r: cfg.counterType === 'quartz' ? 0.2 : 0.3, m: 0 });
+      const ctM = ctOpt.steel ? stdMat('#c4c8cc', { r: 0.3, m: 0.85 }) : texMat(Object.assign({}, ctOpt.t, { tile: 1.2 }), { r: cfg.counterType === 'quartz' ? 0.2 : 0.3, m: 0 });
       const plinthM = stdMat('#2a2b2d', { r: 0.7 });
       const run = (xa, xb, za0, zb0) => {
         const za = Math.min(za0, zb0), zb = Math.max(za0, zb0);
@@ -1094,7 +1094,7 @@
     if (terraceOn) {
       SEC = 'terrace';
       const tf = byId(C.TERRACE_FLOOR, cfg.terraceFloor);
-      const deckM = texMat(tf.t, { r: 0.7 });
+      const deckM = texMat(tf.id === 'std' ? tf.t : Object.assign({}, tf.t, { c: byId(C.DECK_COLOR, cfg.deckColor).c }), { r: 0.7 });
       const thick = cfg.terraceThick;
       const pp = thick ? 0.08 : 0.05, DY = TOP + 0.08;
       box(roofX, L, 0.06, W, deckM, 0, TOP + 0.05, 0);
@@ -1260,7 +1260,7 @@
     if (decks.length) {
       SEC = 'terrace';
       const tf = byId(C.TERRACE_FLOOR, cfg.terraceFloor);
-      const deckM = texMat(tf.t, { r: 0.7 });
+      const deckM = texMat(tf.id === 'std' ? tf.t : Object.assign({}, tf.t, { c: byId(C.DECK_COLOR, cfg.deckColor).c }), { r: 0.7 });
       const pp = cfg.terraceThick ? 0.08 : 0.06, RH = 1.0, top = F;
       const stepX = entry.wall === 'front' ? entry.x : 0;
       const railSeg = (ax, az, bx, bz) => {

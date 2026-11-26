@@ -108,7 +108,7 @@
         noise(S * 2, 0.03); ribs(8, 1);
         break;
       case 'wood':
-        grain(d.g || shade(base, -0.4), Math.round(S * 0.3), false);
+        grain(d.g || shade(base, -0.4), Math.round(S * 0.3), !!d.h); // h: horizontal grain (carved metal panels)
         if (d.knots) {
           for (let i = 0; i < 2; i++) {
             const x = R() * S, y = R() * S;
@@ -192,7 +192,7 @@
       }
       case 'brick': {
         ctx.fillStyle = d.m || '#cfc6b8'; ctx.fillRect(0, 0, S, S);
-        const rows = 12, h = S / rows, w = S / 4, gap = 3 * px;
+        const rows = d.rows || 12, h = S / rows, w = S / (d.cols || 4), gap = 3 * px;
         for (let r = 0; r < rows; r++) {
           const off = r % 2 ? w / 2 : 0;
           for (let x = -w; x < S + w; x += w) {
@@ -228,6 +228,17 @@
           for (let k = 0; k < 5; k++) { const a = k / 5 * 6.28 + R(); const rr = r * (0.6 + R() * 0.6); k ? ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : ctx.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
           ctx.fill();
         }
+        break;
+      }
+      case 'speck': { // sprayed / granite-like coating: base colour with fine dark and light grains
+        const cs = d.cs || [shade(base, -0.35), shade(base, 0.35)];
+        const n = Math.round(S * 14 * (d.n != null ? d.n : 0.6));
+        for (let i = 0; i < n; i++) {
+          ctx.fillStyle = cs[i % cs.length]; ctx.globalAlpha = 0.35 + R() * 0.6;
+          const r = (0.6 + R() * 1.8) * px;
+          ctx.fillRect(R() * S, R() * S, r * (1 + R()), r * (1 + R()));
+        }
+        ctx.globalAlpha = 1; noise(S * 3, 0.06);
         break;
       }
       case 'fabric':
@@ -318,6 +329,21 @@
         noise(S * 2, 0.04);
     }
 
+    if (d.gr) { // horizontal grooves of carved / grooved metal panels
+      const p = S / d.gr, gw = Math.max(2, 4 * px);
+      for (let i = 0; i < d.gr; i++) {
+        const y = i * p;
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, y, S, gw);
+        ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fillRect(0, y + gw, S, Math.max(1, 2 * px));
+        if (d.gr > 4) { const g = ctx.createLinearGradient(0, y, 0, y + p); g.addColorStop(0, 'rgba(255,255,255,0.12)'); g.addColorStop(1, 'rgba(0,0,0,0.16)'); ctx.fillStyle = g; ctx.fillRect(0, y, S, p); }
+      }
+    }
+    if (d.grid) { // tile joints (SPC wall boards with grout lines)
+      ctx.globalAlpha = 1; ctx.fillStyle = d.grid;
+      const w = Math.max(2, 4 * px);
+      ctx.fillRect(0, S / 2 - w / 2, S, w); ctx.fillRect(S / 2 - w / 2, 0, w, S);
+    }
     if (d.seam) { // vertical joint strips (interior panels)
       const tile = d.tile || 1, step = (d.seam.every / tile) * S;
       ctx.globalAlpha = 1; ctx.fillStyle = d.seam.c;

@@ -717,8 +717,9 @@
         `<button type="button" data-key="${it.key}" data-val="${esc(o.id)}" aria-pressed="${String(o.id) === String(cfg[it.key])}">
           <span class="n">${esc(o.name)}</span>${o.sub ? `<span class="s">${esc(o.sub)}</span>` : ''}${o.up ? UPG : ''}</button>`).join('') + '</div>';
     } else if (it.type === 'swatch') {
+      let grp = null; // long catalogue lists are split into their series (carved panels, PET colour cards…)
       ctrl = `<div class="sw-grid" role="group" aria-label="${esc(it.label)}">` + opts.map((o) =>
-        `<button type="button" class="sw" data-key="${it.key}" data-val="${esc(o.id)}" aria-pressed="${String(o.id) === String(cfg[it.key])}" title="${esc(o.name)}${o.up ? ' (upgrade)' : ''}" aria-label="${esc(o.name)}">
+        (o.grp && o.grp !== grp ? `<div class="sw-grp">${esc(grp = o.grp)}</div>` : '') + `<button type="button" class="sw" data-key="${it.key}" data-val="${esc(o.id)}" aria-pressed="${String(o.id) === String(cfg[it.key])}" title="${esc(o.name)}${o.up ? ' (upgrade)' : ''}" aria-label="${esc(o.name)}">
           <span class="chip" style="${swatchStyle(o)}"></span>${o.up ? '<span class="dot"></span>' : ''}<span class="cap">${esc(o.name)}</span></button>`).join('') + '</div>';
     } else if (it.type === 'toggle') {
       ctrl = `<button type="button" class="tog" role="switch" data-key="${it.key}" data-toggle="1" aria-checked="${!!cfg[it.key]}">

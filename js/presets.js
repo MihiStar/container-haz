@@ -14,7 +14,7 @@ CHZ.PRESETS = [
       'Inward-opening windows and a glass double door give daylight without upgrades.',
       'PVC flooring is waterproof and easy to replace in a small, high-traffic space.',
     ],
-    cfg: { size: '10ft', layout: '10-1b', clad: 'irongray', frame: 'black', winType: 'inward', floor: 'pvc-grey' },
+    cfg: { size: '10ft', layout: '10-1b', clad: 'irongray', frame: 'black', winType: 'inward', floor: 'pvc-greywood' },
   },
   {
     id: 'p10-office', size: '10ft', tag: 'Work', name: 'Garden Office',
@@ -25,8 +25,8 @@ CHZ.PRESETS = [
       'A full-height glass front gives desk daylight; built-in blinds stop screen glare.',
       'The open shell leaves the whole floor free for desks and shelving; 4 mm SPC handles office chairs.',
     ],
-    cfg: { size: '10ft', layout: '10-shell', sandwich: 'rockwool', curtain: 'front', blinds: true, cladType: 'wpcFlat', clad: 'wf-walnut',
-      frame: 'darkgray', intWallType: 'carbon', intWall: 'cw-oak', floorType: 'spc4', floor: 's4-8916', indoorLights: 'up', outdoorLights: true, furniture: false },
+    cfg: { size: '10ft', layout: '10-shell', sandwich: 'rockwool', curtain: 'front', blinds: true, cladType: 'wpcFlat', clad: 'wf-coffee',
+      frame: 'darkgray', intWallType: 'carbon', intWall: 'iw-K7143-A189', floorType: 'spc4', floor: 's4-8916', indoorLights: 'up', outdoorLights: true, furniture: false },
   },
   {
     id: 'p10-offgrid', size: '10ft', tag: 'Off-grid', name: 'Off-Grid Cabin',
@@ -75,8 +75,8 @@ CHZ.PRESETS = [
       'Graphene floor heating keeps the glass side comfortable without radiators under the windows.',
       'Fishbone SPC and a quartz worktop make the open room feel finished.',
     ],
-    cfg: { size: '15ft', layout: '15-1b', curtain: 'both', sandwich: 'pu', panelThk: 100, blinds: true, floorHeat: true, floorType: 'fishbone', floor: 'fb-natural',
-      kitchenCab: 'up', cabFinish: 'pet-cashmere', counterType: 'quartz', counter: 'q-calacatta', frame: 'black', clad: 'gray7042', indoorLights: 'up' },
+    cfg: { size: '15ft', layout: '15-1b', curtain: 'both', sandwich: 'pu', panelThk: 100, blinds: true, floorHeat: true, floorType: 'fishbone', floor: 'fb-YG5713',
+      kitchenCab: 'up', cabFinish: 'pet-cashmere', counterType: 'quartz', counter: 'q-jl-526', frame: 'black', clad: 'gray7042', indoorLights: 'up' },
   },
   {
     id: 'p15-rental', size: '15ft', tag: 'Rental', name: 'Guest Suite',
@@ -101,7 +101,7 @@ CHZ.PRESETS = [
       'Two bedrooms plus a living-kitchen fit a couple or a small family.',
       'A light beige skin stays cooler in the sun than dark colours.',
     ],
-    cfg: { size: '20ft', layout: '20-2b', clad: 'beige', frame: 'white', winFrame: 'wf-white', floor: 'pvc-oak' },
+    cfg: { size: '20ft', layout: '20-2b', clad: 'beige', frame: 'white', winFrame: 'wf-white', floor: 'pvc-maple' },
   },
   {
     id: 'p20-family', size: '20ft', tag: 'Family', name: 'Family Compact',
@@ -125,7 +125,7 @@ CHZ.PRESETS = [
       'Carved slate cladding gives a solid, premium look that rents well.',
     ],
     cfg: { size: '20ft', layout: '20-2b2ba', sandwich: 'pir', smartLock: true, heater: 'instant', bathWallType: 'spc', bathWall: 'spc-yafeigrey',
-      exhaust: true, cladType: 'carved', clad: 'cv-slate', frame: 'black', floorType: 'spc4', floor: 's4-8913' },
+      exhaust: true, cladType: 'carved', clad: 'D-093', frame: 'black', floorType: 'spc4', floor: 's4-8913' },
   },
   {
     id: 'p20-rooftop', size: '20ft', tag: 'Outdoor', name: 'Rooftop Lounge',
@@ -137,7 +137,7 @@ CHZ.PRESETS = [
       'A glass front links the living room to the garden below.',
     ],
     cfg: { size: '20ft', layout: '20-1b', terrace: true, terraceRoof: true, solar: true, terraceFloor: 'wpc', terraceThick: true, curtain: 'front',
-      cladType: 'wpcEmb', clad: 'we-charcoal', frame: 'black', outdoorLights: true, indoorLights: 'up' },
+      cladType: 'wpcEmb', clad: 'we-ebony', frame: 'black', outdoorLights: true, indoorLights: 'up' },
   },
 
   // ---------------------------------------------------------------- 30 ft
@@ -152,7 +152,7 @@ CHZ.PRESETS = [
     ],
     cfg: { size: '30ft', layout: '30-2b', curtain: 'front', blinds: true, deck: 'L', deckRoof: true, terraceFloor: 'wpc', sandwich: 'pu', panelThk: 100,
       floorHeat: true, cladType: 'wpcFlat', clad: 'wf-teak', frame: 'brown', outdoorKitchen: 'plus', okFinish: 'match', kitchenCab: 'up',
-      cabFinish: 'pet-cream-st', counterType: 'quartz', counter: 'q-white', outdoorLights: true },
+      cabFinish: 'pet-cream-st', counterType: 'quartz', counter: 'q-hf-1000', outdoorLights: true },
   },
   {
     id: 'p30-fourseason', size: '30ft', tag: 'Year-round', name: 'Four-Season Family',
@@ -164,7 +164,7 @@ CHZ.PRESETS = [
       'Floor heating plus a full kitchen with tall units make it a permanent home, not a cabin.',
     ],
     cfg: { size: '30ft', layout: '30-3b', sandwich: 'graphite', panelThk: 100, roof: 'gable', floorHeat: true, winType: 'double', floorType: 'spc6',
-      floor: 's6-8104', kitchenCab: 'up', cabFinish: 'pet-sage-st', counterType: 'quartz', counter: 'q-concrete', entrance: 'steel', steelColor: 'sd-walnut',
+      floor: 's6-8104', kitchenCab: 'up', cabFinish: 'pet-sage-st', counterType: 'quartz', counter: 'q-jl-708', entrance: 'steel', steelColor: 'sd-walnut',
       clad: 'maple', frame: 'brown', heater: 'storage', indoorLights: 'up' },
   },
   {
@@ -188,7 +188,7 @@ CHZ.PRESETS = [
       'The Pro kitchen in custom finishes and a covered deck make the patio the main living space.',
       'SPC stone bathroom walls, a 120 cm vanity and a fluted-glass door carry the spa theme inside.',
     ],
-    cfg: { size: '30ft', layout: '30-1b', pool: 'QG-02', outdoorKitchen: 'pro', okFinish: 'custom', okCab: 'pet-elegant-oak', okTop: 'q-black',
+    cfg: { size: '30ft', layout: '30-1b', pool: 'QG-02', outdoorKitchen: 'pro', okFinish: 'custom', okCab: 'pet-elegant-oak', okTop: 'q-zs-black',
       okWall: 'okw-char', okFrame: 'okf-black', deck: 'front', deckRoof: true, terraceFloor: 'wpc', cladType: 'wpcEmb', clad: 'we-walnut', frame: 'black',
       bathWallType: 'spc', bathWall: 'spc-roman', vanityW: 120, bathDoor: 'rainbow', floorHeat: true, outdoorLights: true },
   },
@@ -204,7 +204,7 @@ CHZ.PRESETS = [
       'Quartz worktop, tall units and LED lighting finish it to a permanent-home standard.',
     ],
     cfg: { size: '40ft', layout: '40-3b', sandwich: 'graphite', panelThk: 100, floorHeat: true, solar: true, floorType: 'spc6', floor: 's6-8102',
-      kitchenCab: 'up', cabFinish: 'pet-iceberg-hg', counterType: 'quartz', counter: 'q-calacatta', deck: 'front', deckRoof: true, outdoorLights: true,
+      kitchenCab: 'up', cabFinish: 'pet-iceberg-hg', counterType: 'quartz', counter: 'q-jl-526', deck: 'front', deckRoof: true, outdoorLights: true,
       indoorLights: 'up', clad: 'xinyu', frame: 'black', winType: 'sliding', roomDoor: 'rd-walnut' },
   },
   {
@@ -218,8 +218,8 @@ CHZ.PRESETS = [
     ],
     cfg: { size: '40ft', layout: '40-2b-m', curtain: 'both', blinds: true, sandwich: 'pu', panelThk: 100, terrace: true, terraceRoof: true, solar: true,
       terraceFloor: 'wpc', terraceThick: true, deck: 'L', deckRoof: true, pool: 'QG-03', outdoorKitchen: 'pro', okFinish: 'match', kitchenCab: 'up',
-      cabFinish: 'pet-black-hg', counterType: 'quartz', counter: 'q-white', cladType: 'wpcEmb', clad: 'we-grey', frame: 'black', floorHeat: true,
-      floorType: 'fishbone', floor: 'fb-smoke', outdoorLights: true, indoorLights: 'up', smartLock: true },
+      cabFinish: 'pet-black-hg', counterType: 'quartz', counter: 'q-hf-1000', cladType: 'wpcEmb', clad: 'we-ash', frame: 'black', floorHeat: true,
+      floorType: 'fishbone', floor: 'fb-YG5711', outdoorLights: true, indoorLights: 'up', smartLock: true },
   },
   {
     id: 'p40-homestead', size: '40ft', tag: 'Off-grid', name: 'Off-Grid Homestead',
@@ -231,7 +231,7 @@ CHZ.PRESETS = [
       'Carved slate cladding and a steel security door need no painting and resist knocks.',
     ],
     cfg: { size: '40ft', layout: '40-4b', sandwich: 'pir', panelThk: 100, roof: 'sloping', solar: true, heater: 'storage', entrance: 'steel',
-      steelColor: 'sd-black', smartLock: true, cladType: 'carved', clad: 'cv-slate', frame: 'darkgray', winType: 'double', floorType: 'spc6', floor: 's6-8107' },
+      steelColor: 'sd-black', smartLock: true, cladType: 'carved', clad: 'D-093', frame: 'darkgray', winType: 'double', floorType: 'spc6', floor: 's6-8107' },
   },
   {
     id: 'p40-showroom', size: '40ft', tag: 'Work', name: 'Showroom & Office',
