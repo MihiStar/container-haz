@@ -980,6 +980,11 @@ window.CHZ = window.CHZ || {};
     "Door added. Click it (or its blue arrow) for hinge and swing options.": "Ajtó beillesztve. Kattintson rá (vagy a kék nyílra) a zsanér és a nyitásirány beállításához.",
     "Click an interior wall to add a door. Click a door, its blue arrow, or hold on it for hinge and swing options.": "Kattintson egy belső falra ajtó beillesztéséhez. Egy ajtóra, a kék nyilára kattintva vagy rajta hosszan nyomva állítható a zsanér és a nyitásirány.",
 
+    // ---------------------------------------------------------------- update bar
+    "A new version of the configurator is available.": "Elérhető a konfigurátor új verziója.",
+    "Reload": "Frissítés",
+    "Later": "Később",
+
     // presentation title card / summary pieces
     "Flat roof": "Lapostető",
     "Gable roof": "Nyeregtető",
